@@ -8,18 +8,11 @@
 
 sub write_payload
 {
-  local('$outpath');
-  local('$filename');
-  local('$data');
+  local('$outpath $filename $data $path $handle');
+  ($outpath, $filename, $data) = @_;
 
-  $outpath = $1;
-  $filename = $2;
-  $data = $3;
-
-  local('$path');
   $path = getFileProper($outpath, $filename);
 
-  local('$handle');
   $handle = openf(">$path");
   writeb($handle, $data);
   closef($handle);
