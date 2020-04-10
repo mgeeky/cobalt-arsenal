@@ -8,52 +8,52 @@
 
 sub write_payload
 {
-  local('$outpath $filename $data $path $handle');
-  ($outpath, $filename, $data) = @_;
+    local('$outpath $filename $data $path $handle');
+    ($outpath, $filename, $data) = @_;
 
-  $path = getFileProper($outpath, $filename);
+    $path = getFileProper($outpath, $filename);
 
-  $handle = openf(">$path");
-  writeb($handle, $data);
-  closef($handle);
-
-  #println("Written file to $path ");
+    $handle = openf(">$path");
+    writeb($handle, $data);
+    closef($handle);
 }
 
 sub generate 
 {
-  local('%options');
-  %options = $3;
+    local('%options $outpath');
+    %options = $3;
 
-  write_payload(%options["outpath"], %options["listener"] . "-x86.dll", artifact_payload(%options["listener"], "dll", "x86"));
-  write_payload(%options["outpath"], %options["listener"] . "-x64.dll", artifact_payload(%options["listener"], "dllx64", "x64"));
-  write_payload(%options["outpath"], %options["listener"] . "-x86.exe", artifact_payload(%options["listener"], "exe", "x86"));
-  write_payload(%options["outpath"], %options["listener"] . "-x64.exe", artifact_payload(%options["listener"], "exe", "x64"));
-  write_payload(%options["outpath"], %options["listener"] . "-x86.ps1", artifact_payload(%options["listener"], "powershell", "x86"));
-  write_payload(%options["outpath"], %options["listener"] . "-x64.ps1", artifact_payload(%options["listener"], "powershell", "x64"));
-  write_payload(%options["outpath"], %options["listener"] . "-x86.py", artifact_payload(%options["listener"], "python", "x86"));
-  write_payload(%options["outpath"], %options["listener"] . "-x64.py", artifact_payload(%options["listener"], "python", "x64"));
-  write_payload(%options["outpath"], %options["listener"] . "-x86.bin", artifact_payload(%options["listener"], "raw", "x86"));
-  write_payload(%options["outpath"], %options["listener"] . "-x64.bin", artifact_payload(%options["listener"], "raw", "x64"));
-  write_payload(%options["outpath"], %options["listener"] . "-svc-x86.exe", artifact_payload(%options["listener"], "svcexe", "x86"));
-  write_payload(%options["outpath"], %options["listener"] . "-svc-x64.exe", artifact_payload(%options["listener"], "svcexe", "x64"));
+    prompt_directory_open("Choose folder to store generated payload variants", $null, false, lambda({
+        $outpath = $1;
+        write_payload($outpath, %_options["listener"] . "-x86.dll", artifact_payload(%_options["listener"], "dll", "x86"));
+        write_payload($outpath, %_options["listener"] . "-x64.dll", artifact_payload(%_options["listener"], "dllx64", "x64"));
+        write_payload($outpath, %_options["listener"] . "-x86.exe", artifact_payload(%_options["listener"], "exe", "x86"));
+        write_payload($outpath, %_options["listener"] . "-x64.exe", artifact_payload(%_options["listener"], "exe", "x64"));
+        write_payload($outpath, %_options["listener"] . "-x86.ps1", artifact_payload(%_options["listener"], "powershell", "x86"));
+        write_payload($outpath, %_options["listener"] . "-x64.ps1", artifact_payload(%_options["listener"], "powershell", "x64"));
+        write_payload($outpath, %_options["listener"] . "-x86.py", artifact_payload(%_options["listener"], "python", "x86"));
+        write_payload($outpath, %_options["listener"] . "-x64.py", artifact_payload(%_options["listener"], "python", "x64"));
+        write_payload($outpath, %_options["listener"] . "-x86.bin", artifact_payload(%_options["listener"], "raw", "x86"));
+        write_payload($outpath, %_options["listener"] . "-x64.bin", artifact_payload(%_options["listener"], "raw", "x64"));
+        write_payload($outpath, %_options["listener"] . "-svc-x86.exe", artifact_payload(%_options["listener"], "svcexe", "x86"));
+        write_payload($outpath, %_options["listener"] . "-svc-x64.exe", artifact_payload(%_options["listener"], "svcexe", "x64"));
 
-  show_message("Generated payloads saved to: " . %options["outpath"]);
+        prompt_text("Payload variants generated to:", $outpath, {});
+    }, %_options => %options));
 }
 
 popup attacks 
 {
-  item "Generate payload variants" 
-  {
-    local('$dialog %defaults');
+    item "Generate payload variants" 
+    {
+        local('$dialog %defaults');
 
-    $dialog = dialog("Generate payload variants", %defaults, &generate);
-    
-    dialog_description($dialog, "Generates variants for the selected listener's payloads and dumps them to specified output directory.");
-    drow_listener_stage($dialog, "listener", "Listener: ");
-    drow_text($dialog, "outpath", "Output directory:");
-    dbutton_action($dialog, "Generate");
+        $dialog = dialog("Generate payload variants", %defaults, &generate);
+        
+        dialog_description($dialog, "Generates variants for the selected listener's payloads and dumps them to specified output directory.");
+        drow_listener_stage($dialog, "listener", "Listener: ");
+        dbutton_action($dialog, "Generate");
 
-    dialog_show($dialog);
-  }
+        dialog_show($dialog);
+    }
 }
