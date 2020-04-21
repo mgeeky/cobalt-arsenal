@@ -52,6 +52,9 @@ sub create_vis {
 
     # Controls how the column headers will sort the table
     $sorter = [new TableRowSorter: $forwarded_ports_model];
+
+    # Doubled-toggle will make DESC sort instead of ASC
+    [$sorter toggleSortOrder: 7];
     [$sorter toggleSortOrder: 7];
 
     [$sorter setComparator: 0, {
@@ -131,7 +134,7 @@ sub search_archives {
                 }
 
                 add(@linesAdd, %(
-                    timestamp => dstamp(%entry['when']),
+                    timestamp => %entry['when'],
                     beacon_id => $bid,
                     beacon_pid => beacon_info($bid, "pid"), 
                     beacon_ip => beacon_info($bid, "host"), 
@@ -154,25 +157,34 @@ sub search_archives {
                 }
 
                 add(@linesRemove, %(
+                    timestamp => %entry['when'],
                     beacon_id => $bid,
-                    local_port => $localport, 
+                    local_port => $localport,
                 ));
             }
         }
     }
 
+    sort({ return $1['timestamp'] < $2['timestamp']; }, @linesAdd);
+    sort({ return $1['timestamp'] < $2['timestamp']; }, @linesRemove);
+
     # Unfilter lines that stopped remote port forwarding
-    foreach $line1 (@linesAdd) {
-        $found = 0;
-        foreach $line2 (@linesRemove) {
-            if(($line1['local_port'] eq $line2['local_port']) && ($line1['beacon_id'] eq $line2['beacon_id'])) {
-                $found = 1;
-                break;
+    foreach $lineAdd (@linesAdd) {
+        $dontAdd = 0;
+
+        foreach $lineRem (@linesRemove) {
+            if(($lineAdd['local_port'] eq $lineRem['local_port']) && ($lineAdd['beacon_id'] eq $lineRem['beacon_id'])) {
+
+                 if($lineRem['timestamp'] >= $lineAdd['timestamp']) {
+                    $dontAdd = 1;
+                    break;
+                 }
             }
         }
 
-        if($found == 0) {
-            add(@output, $line1);
+        if($dontAdd == 0) {
+            $lineAdd['timestamp'] = dstamp($lineAdd['timestamp']);
+            add(@output, $lineAdd);
         }
     }
 
@@ -245,3 +257,13 @@ popup view {
         addTab("Remote Forwarded Ports", create_vis(), "All forwarded/remote forwarded ports");
     }
 } 
+
+on beacon_error {
+    if(indexOf($2, "Could not bind to ") == 0) {
+        # Dummy rportfwd stop to maintain our archives integrity by having both start and stop commands, even
+        # in a case of failure.
+        if($2 ismatch 'Could not bind to (\d+)') {
+            brportfwd_stop!($1, matched()[0]);
+        }
+    }
+}
