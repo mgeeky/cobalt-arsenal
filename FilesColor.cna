@@ -1,0 +1,79 @@
+#
+# Color Coded Files Listing.
+#
+# Based on the original ProcessColor.cna idea by @r3dQu1nn.
+#
+# Author:
+#   Mariusz B. / mgeeky, '20
+#   <mb [at] binary-offensive.com>
+#   (httls://github.com/mgeeky)
+#
+
+set BEACON_OUTPUT_LS {
+    local('$bd $outls $temp $size $ext $dotpos $type $lastmod $name @lines @ls');
+    @lines = split("\n", ["$2" trim]);
+
+    @sensitive = @('ost', 'sqlite', 'sqlite3', 'kdbx', 'kdb', 'sql', 'dit');
+    @archives = @('rar', 'zip', '7z', 'tar', 'gz', 'bz2');
+    @exes = @('sys', 'exe', 'dll');
+    @docs = @('rtf', 'pdf', 'docx', 'doc', 'xls', 'xlsx', 'ppt', 'pptx');
+    @sources = @('cpp', 'h', 'hpp', 'c', 'pl', 'py', 'java', 'rb', 'conf', 
+        'json', 'yml', 'html', 'js', 'css', 'asp', 'aspx', 'cs', 'vbs', 'vbe', 'jse');
+    
+    $outls .= "\c9[+]\o Location: \cB" . @lines[0] . "\o\n\n";
+    $outls .= " Size     Type    Last Modified         Name\n";
+    $outls .= " ----     ----    -------------         ----\n";
+
+    foreach $temp (sublist(@lines, 1)) {
+        ($type, $size, $lastmod, $name) = split("\t", $temp);
+
+        if($type eq "D") { $type = "dir"; }
+        else if($type eq "F") { $type = "fil"; }
+
+        if($size == 0) { $size = ""; }
+        else if(int($size) < 1024) { $size .= "B"; }
+        else if(int($size) < 1024 * 1024) { $size = (int($size) / 1024) . "KB"; }
+        else if(int($size) < 1024 * 1024 * 1024) { $size = (int($size) / 1024 / 1024) .  "MB"; }
+        else if(int($size) < 1024 * 1024 * 1024 * 1024) { $size = (int($size) / 1024 / 1024) .  "GB"; }
+
+        $dotpos = lindexOf($name, '.');
+        $ext = "";
+        if(($dotpos) ) {
+            $ext = substr($name, $dotpos + 1);
+        }
+        
+        if ($name eq "." || $name eq "..") {
+            continue;
+        }
+        else if($type eq "dir") {
+            # Directories in YELLOW
+            push(@ls, %(type => $type, name => $name, entry => "\c8 $[8]size $[7]type\o $[21]lastmod\c8 $name \o"));
+        } 
+        else if($ext in @exes) {
+            # Executables in Magenta
+            push(@ls, %(type => $type, name => $name, entry => "\cD $[8]size $[7]type\o $[21]lastmod\cD $name \o"));
+        } else if($ext in @docs) {
+            # Documents in Green
+            push(@ls, %(type => $type, name => $name, entry => "\c9 $[8]size $[7]type\o $[21]lastmod\c9 $name \o"));
+        } else if($ext in @sources) {
+            # Source codes in Blue
+            push(@ls, %(type => $type, name => $name, entry => "\cB $[8]size $[7]type\o $[21]lastmod\cB $name \o"));
+        } else if($ext in @sources) {
+            # Sensitive files in Red
+            push(@ls, %(type => $type, name => $name, entry => "\c4 $[8]size $[7]type\o $[21]lastmod\c4 $name \o"));
+        } else if($ext in @sources) {
+            # Archives in Orange
+            push(@ls, %(type => $type, name => $name, entry => "\c7 $[8]size $[7]type\o $[21]lastmod\c7 $name \o"));
+        } else {
+            push(@ls, %(type => $type, name => $name, entry => " $[8]size $[7]type $[21]lastmod $name \o"));
+        }
+    }
+
+    sort({ return ($1['type'] cmp $2['type']); }, @ls);
+
+    foreach $temp (@ls) {
+        $outls .= $temp['entry'] . "\n";
+    }
+
+    return $outls;
+}
