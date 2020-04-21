@@ -246,10 +246,6 @@ popup forwarded_ports_menu {
             }, $bid => $bid, $localip => $localip, $localport => $localport));
         }
     }
-
-    item "Refresh list" {
-        update_table();
-    }
 }
 
 popup view {
