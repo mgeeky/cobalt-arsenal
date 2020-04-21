@@ -1,6 +1,9 @@
 #
 # Color Coded Files Listing.
 #
+# Be wary of additional performance hit when listing big directories imposed by 
+# their listing processing, coloring and sorting that this script does.
+#
 # Based on the original ProcessColor.cna idea by @r3dQu1nn.
 #
 # Author:
@@ -14,17 +17,45 @@ global('@UPLOADED_FILE_NAMES $TIMES_TO_DISPLAY_COLORS_SCHEME');
 @UPLOADED_FILE_NAMES = @();
 $TIMES_TO_DISPLAY_COLORS_SCHEME = 3;
 
+sub interpretSize {
+    local('$s $size');
+    $s = $1;
+
+    if($s == 0) { 
+        $size = ""; 
+    }
+    else if($s < 1024) { 
+        $size .= $s . "B"; 
+    }
+    else if($s < 1024 * 1024) { 
+        $size = round($s / 1024.0, 2);
+        $size .= "KB";
+    }
+    else if($s < 1024 * 1024 * 1024) { 
+        $size = round(($s / 1024.0) / 1024, 2); 
+        $size .= "MB";
+    }
+    else if($s < 1024 * 1024 * 1024 * 1024) { 
+        $size = round((($s / 1024.0) / 1024) / 1024, 2); 
+        $size .= "GB";
+    }
+
+    return $size;
+}
+
 set BEACON_OUTPUT_LS {
-    local('$bd $outls $temp $size $ext $dotpos $type $lastmod $name @lines @ls');
+    local('$totalsize @subl $outls $temp $size $s $ext $dotpos $type $lastmod $name @lines @ls');
     this('$once');
+
     @lines = split("\n", ["$2" trim]);
 
+    @configuration = @('config', 'conf', 'json', 'yml', 'inf', 'properties');
     @sensitive = @('ost', 'sqlite', 'sqlite3', 'kdbx', 'kdb', 'sql', 'dit', 'kirbi', 'ccache', 'kirbis');
     @archives = @('rar', 'zip', '7z', 'tar', 'gz', 'bz2');
     @exes = @('msi', 'sys', 'exe', 'dll');
     @docs = @('msg', 'rtf', 'txt', 'pdf', 'docx', 'doc', 'xls', 'xlsx', 'ppt', 'pptx');
-    @sources = @('cpp', 'md', 'h', 'hpp', 'c', 'pl', 'sql', 'php', 'py', 'java', 'rb', 'conf', 
-        'json', 'yml', 'html', 'js', 'css', 'asp', 'aspx', 'cs', 'vbs', 'vbe', 'jse');
+    @sources = @('cpp', 'md', 'h', 'hpp', 'c', 'pl', 'sql', 'php', 'py', 'java', 'rb', 
+        'html', 'js', 'css', 'asp', 'aspx', 'cs', 'vbs', 'vbe', 'jse');
 
 
     if($once < $TIMES_TO_DISPLAY_COLORS_SCHEME) {
@@ -33,62 +64,75 @@ set BEACON_OUTPUT_LS {
         $outls .= "\cC[*]\o Directories: \c8 YELLOW \o\n";
         $outls .= "\cC[*]\o Cobalt Strike Uploaded Files: \cB\UBLUE\U\o\n";
         $outls .= "\cC[*]\o Sensitive files: \c4 RED \o\n";
+        $outls .= "\cC[*]\o Configuration files: \c3 DARK GREEN \o\n";
         $outls .= "\cC[*]\o Archives: \c7 ORANGE \o\n";
         $outls .= "\cC[*]\o Source codes: \cC DARK BLUE \o\n";
         $outls .= "\cC[*]\o Executables: \cD MAGENTA \o\n";
         $outls .= "\cC[*]\o Documents: \c9 GREEN \o\n";
         $once += 1;
     }
-    
-    $outls .= "\c9[+]\o Location: \cB" . @lines[0] . "\o\n\n";
-    $outls .= " Size     Type    Last Modified         Name\n";
-    $outls .= " ----     ----    -------------         ----\n";
 
-    foreach $temp (sublist(@lines, 1)) {
-        ($type, $size, $lastmod, $name) = split("\t", $temp);
+    $outls .= "\c9[+]\o Location: \cB" . @lines[0] . "\o\n\n";
+    $outls .= " Size       Type    Last Modified         Name\n";
+    $outls .= " ----       ----    -------------------   ----\n";
+
+    @subl = sublist(@lines, 1);
+    $totalsize = 0;
+
+    foreach $temp (@subl) {
+        ($type, $s, $lastmod, $name) = split("\t", $temp);
+
+        if ($name eq "." || $name eq "..") {
+            continue;
+        }
 
         if($type eq "D") { $type = "dir"; }
         else if($type eq "F") { $type = "fil"; }
 
-        if($size == 0) { $size = ""; }
-        else if(int($size) < 1024) { $size .= "B"; }
-        else if(int($size) < 1024 * 1024) { $size = (int($size) / 1024) . "KB"; }
-        else if(int($size) < 1024 * 1024 * 1024) { $size = (int($size) / 1024 / 1024) .  "MB"; }
-        else if(int($size) < 1024 * 1024 * 1024 * 1024) { $size = (int($size) / 1024 / 1024) .  "GB"; }
+        $s = int($s);
+        $totalsize += $s;
+        $size = interpretSize($s);
 
         $dotpos = lindexOf($name, '.');
         $ext = "";
         if(($dotpos) ) {
-            $ext = substr($name, $dotpos + 1);
+            $ext = lc(substr($name, $dotpos + 1));
         }
         
-        if ($name eq "." || $name eq "..") {
-            continue;
-        }
-        else if($type eq "dir") {
+        if($type eq "dir") {
             # Directories in YELLOW
-            push(@ls, %(type => $type, name => $name, entry => "\c8 $[8]size $[7]type\o $[21]lastmod\c8 $name \o"));
-        } else if($name in @UPLOADED_FILE_NAMES) {
+            push(@ls, %(type => $type, name => $name, entry => "\c8 $[10]size $[7]type\o $[21]lastmod\c8 $name \o"));
+        } 
+        else if($name in @UPLOADED_FILE_NAMES) {
             # Uploaded Files through Cobalt Strike (the ones we still keep track off) in Blue
-            push(@ls, %(type => $type, name => $name, entry => "\cB $[8]size $[7]type\o $[21]lastmod\cB\U $+ $name $+ \U\o"));
+            push(@ls, %(type => $type, name => $name, entry => "\cB $[10]size $[7]type\o $[21]lastmod\cB\U $+ $name $+ \U\o"));
         }
         else if($ext in @exes) {
             # Executables in Magenta
-            push(@ls, %(type => $type, name => $name, entry => "\cD $[8]size $[7]type\o $[21]lastmod\cD $name \o"));
-        } else if($ext in @docs) {
+            push(@ls, %(type => $type, name => $name, entry => "\cD $[10]size $[7]type\o $[21]lastmod\cD $name \o"));
+        } 
+        else if($ext in @interesting) {
+            # Configuration files in Dark Green
+            push(@ls, %(type => $type, name => $name, entry => "\c3 $[10]size $[7]type\o $[21]lastmod\c3 $name \o"));
+        } 
+        else if($ext in @docs) {
             # Documents in Green
-            push(@ls, %(type => $type, name => $name, entry => "\c9 $[8]size $[7]type\o $[21]lastmod\c9 $name \o"));
-        } else if($ext in @sources) {
+            push(@ls, %(type => $type, name => $name, entry => "\c9 $[10]size $[7]type\o $[21]lastmod\c9 $name \o"));
+        } 
+        else if($ext in @sources) {
             # Source codes in Dark Blue
-            push(@ls, %(type => $type, name => $name, entry => "\cC $[8]size $[7]type\o $[21]lastmod\cC $name \o"));
-        } else if($ext in @sensitive) {
+            push(@ls, %(type => $type, name => $name, entry => "\cC $[10]size $[7]type\o $[21]lastmod\cC $name \o"));
+        } 
+        else if($ext in @sensitive) {
             # Sensitive files in Red
-            push(@ls, %(type => $type, name => $name, entry => "\c4 $[8]size $[7]type\o $[21]lastmod\c4 $name \o"));
-        } else if($ext in @archives) {
+            push(@ls, %(type => $type, name => $name, entry => "\c4 $[10]size $[7]type\o $[21]lastmod\c4 $name \o"));
+        } 
+        else if($ext in @archives) {
             # Archives in Orange
-            push(@ls, %(type => $type, name => $name, entry => "\c7 $[8]size $[7]type\o $[21]lastmod\c7 $name \o"));
-        } else {
-            push(@ls, %(type => $type, name => $name, entry => " $[8]size $[7]type $[21]lastmod $name \o"));
+            push(@ls, %(type => $type, name => $name, entry => "\c7 $[10]size $[7]type\o $[21]lastmod\c7 $name \o"));
+        } 
+        else {
+            push(@ls, %(type => $type, name => $name, entry => " $[10]size $[7]type $[21]lastmod $name \o"));
         }
     }
 
@@ -98,6 +142,8 @@ set BEACON_OUTPUT_LS {
         $outls .= $temp['entry'] . "\n";
     }
 
+    $totalsize = interpretSize($totalsize);
+    $outls .= "\nFiles and dirs count: " . size(@ls) . ", total size of files: $totalsize \n";
     return $outls;
 }
 
