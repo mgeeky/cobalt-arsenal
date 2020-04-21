@@ -20,7 +20,7 @@ Aforementioned methods are heavily flagged these days by EDRs and AVs so we woul
 
 - **`FilesColor.cna`** - Color Coded Files Listing. Similar to `ProcessColor.cna` by [@r3dQu1nn](https://github.com/harleyQu1nn/AggressorScripts) this script colorizes file listing outputs based on file type and extension. It also keeps track of uploaded files to have them colored in files listing, but the global array of uploaded files will contain values only as long as the script is not reloaded (or throughout the course of one authenticated operator's session)
 
-![FilesColor example](https://raw.githubusercontent.com/mgeeky/cobalt-arsenal/master/img/1.PNG)
+![FilesColor example](https://raw.githubusercontent.com/mgeeky/cobalt-arsenal/master/img/1.PNG =250x250)
 
 
 - **`Highlight_Beacons.cna`** - Highlights Beacons for a specified time duration (`$HIGHLIGHT_DURATION`) on Initial check-in event, when exiting (and after Beacon exited) and after each Beacon command's output. Configurable colors and events found in `%HIGHLIGHTS` dictionary. Hint: Specify `output => ""` to disable highlighting new Beacon command outputs.
