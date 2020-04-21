@@ -22,7 +22,7 @@ set BEACON_OUTPUT_LS {
     @sensitive = @('ost', 'sqlite', 'sqlite3', 'kdbx', 'kdb', 'sql', 'dit', 'kirbi', 'ccache', 'kirbis');
     @archives = @('rar', 'zip', '7z', 'tar', 'gz', 'bz2');
     @exes = @('msi', 'sys', 'exe', 'dll');
-    @docs = @('rtf', 'txt', 'pdf', 'docx', 'doc', 'xls', 'xlsx', 'ppt', 'pptx');
+    @docs = @('msg', 'rtf', 'txt', 'pdf', 'docx', 'doc', 'xls', 'xlsx', 'ppt', 'pptx');
     @sources = @('cpp', 'md', 'h', 'hpp', 'c', 'pl', 'sql', 'php', 'py', 'java', 'rb', 'conf', 
         'json', 'yml', 'html', 'js', 'css', 'asp', 'aspx', 'cs', 'vbs', 'vbe', 'jse');
 
