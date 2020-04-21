@@ -22,6 +22,9 @@ Aforementioned methods are heavily flagged these days by EDRs and AVs so we woul
 
 ![FilesColor example](https://raw.githubusercontent.com/mgeeky/cobalt-arsenal/master/img/1.PNG)
 
+- **`Forwarded_Ports.cna`** - Keeps track of configured remote port forwardings on all Beacons and lets kill them easily. 
+
+Using `rportfwd` here and there quickly consumes pool of available local ports from which to forward traffic outbound and keeping track of them manually becomes tedious on a long-haul projects. This script aims to fill that gap by collecting these commands and presenting them in a nice visualization pane (concept & implementation based on previous work of [ramen0x3f's leave_no_trace](https://github.com/ramen0x3f/AggressorScripts/blob/master/leave_no_trace.cna), [@001SPARTaN and @r3dqu1nn logvis.cna](https://github.com/invokethreatguy/AggressorCollection/blob/master/harleyQu1nn/logvis.cna).
 
 - **`Highlight_Beacons.cna`** - Highlights Beacons for a specified time duration (`$HIGHLIGHT_DURATION`) on Initial check-in event, when exiting (and after Beacon exited) and after each Beacon command's output. Configurable colors and events found in `%HIGHLIGHTS` dictionary. Hint: Specify `output => ""` to disable highlighting new Beacon command outputs.
 

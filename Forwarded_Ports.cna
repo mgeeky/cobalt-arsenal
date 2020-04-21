@@ -1,0 +1,202 @@
+#
+# Forwarded_Ports.cna
+#
+# Keeps track of configured remote port forwardings on all Beacons and lets kill them easily.
+#
+# Using 'rportfwd' here and there quickly consumes pool of available local ports 
+# from which to forward traffic outbound and keeping track of them manually becomes tedious
+# on a long-haul projects. This script aims to fill that gap by collecting these commands
+# and presenting them in a nice visualization pane.
+#
+# CREDIT:
+#   This script is a reworked version of `leave_no_trace.cna` by Alyssa (ramen0x3f):
+#     https://github.com/ramen0x3f/AggressorScripts/blob/master/leave_no_trace.cna
+#
+#   who in turn used work made by @001SPARTaN and @r3dqu1nn that came up with `logvis.cna`
+#   implementation:
+#     https://github.com/invokethreatguy/AggressorCollection/blob/master/harleyQu1nn/logvis.cna
+#
+# Author:
+#   Mariusz B. / mgeeky, '20
+#   <mb [at] binary-offensive.com>
+#   (httls://github.com/mgeeky)
+#
+
+import ui.*;
+import table.*;
+import java.awt.*;
+import javax.swing.*;
+import javax.swing.table.*;
+
+global('$forwarded_ports_model $forwarded_ports_table %forwarded_ports_looking');
+
+sub create_vis {
+    ## This is the fancy code from @001SPARTaN and @r3dqu1nn
+
+    local('$sorter $content');
+
+    $forwarded_ports_model = [new GenericTableModel: @(
+        "timestamp",
+        "beacon_id", 
+        "beacon_pid", 
+        "beacon_ip", 
+        "beacon_user", 
+        "local_port", 
+        "remote_host", 
+        "remote_port"
+    ), 
+    "beacon", 16];
+
+    # Create a table from the GenericTableModel
+    $forwarded_ports_table = [new ATable: $forwarded_ports_model];
+
+    # Controls how the column headers will sort the table
+    $sorter = [new TableRowSorter: $forwarded_ports_model];
+    [$sorter toggleSortOrder: 7];
+
+    [$sorter setComparator: 0, {
+        return $1 cmp $2;
+    }];
+
+    [$sorter setComparator: 1, {
+        return $1 cmp $2;
+    }];
+
+    [$sorter setComparator: 2, {
+        return $1 <=> $2;
+    }];
+
+    [$sorter setComparator: 3, {
+        return $1 cmp $2;
+    }];
+
+    [$sorter setComparator: 4, {
+        return $1 cmp $2;
+    }];
+
+    [$sorter setComparator: 5, {
+        return $1 <=> $2;
+    }];
+
+    [$sorter setComparator: 6, {
+        return $1 <=> $2;
+    }];
+
+    [$sorter setComparator: 7, {
+        return $1 <=> $2;
+    }];
+
+    # Set $sorter as the row sorter for $forwarded_ports_table
+    [$forwarded_ports_table setRowSorter: $sorter];
+
+    # Create a split pane (divider you can drag around)
+    $content = [new JScrollPane: $forwarded_ports_table];
+
+    # Set popup menu for the table
+    setup_popup($forwarded_ports_table, "forwarded_ports_menu");
+
+    update_table();
+
+    # Register the visualization with CS
+    addVisualization("Forwarded Ports", $content);
+    return $content;
+}
+
+sub search_archives {
+    ## Parses archives to pull out uploads for the Leave No Trace tab
+    ## Returns all the items to add to the model 
+
+    local('$ip @output @bids %entry $bid');
+    @output = @();
+    @bids = beacon_ids();
+
+    foreach %entry (data_query("archives")) {
+
+        if( indexOf(%entry['data'], 'forward port ') == 0) { 
+            if(%entry['data'] ismatch 'forward port (\d+) to ([^:]+):(\d+)') {
+                ($localport, $remotehost, $remoteport) = matched();
+
+                $bid = %entry['bid'];
+                if ( $bid !in  @bids ) {
+                    continue;
+                }
+
+                add(@output, %(
+                    timestamp => dstamp(%entry['when']),
+                    beacon_id => $bid,
+                    beacon_pid => beacon_info($bid, "pid"), 
+                    beacon_ip => beacon_info($bid, "host"), 
+                    beacon_user => beacon_info($bid, "user"), 
+                    local_port => $localport, 
+                    remote_host => $remotehost, 
+                    remote_port => $remoteport, 
+                ));
+            }
+        }
+    }
+
+    return @output;
+}
+
+sub setup_popup {
+    # setup_popup provided by Raphael Mudge
+    # https://gist.github.com/rsmudge/87ce80cd8d8d185c5870d559af2dc0c2
+    # we're using fork({}) to run this in a separate Aggressor Script environment.
+    # This reduces deadlock potential due to Sleep's global interpreter lock
+    #
+    # this especially matters as our mouse listener will be fired for *everything*
+    # to include mouse movements.
+    fork({
+        [$component addMouseListener: lambda({
+            if ([$1 isPopupTrigger]) {
+                # If right click, show popup
+                show_popup($1, $name, $component);
+            }
+        }, \$component, \$name)];
+    }, $component => $1, $name => $2, $forwarded_ports_model => $forwarded_ports_model, $forwarded_ports_table => $forwarded_ports_table);
+}
+
+sub update_table {
+    ## Updates the Leave No Trace tab
+    ## As a note: when you fork() you have to pass all global 
+    ##  variables (see \$forwarded_ports_model and \%forwarded_ports_looking) or you'll go insane. 
+
+    fork({
+        local('%entry');
+
+        # Clear the model so we can put new stuff in it.
+        [$forwarded_ports_model clear: 1024];
+
+        foreach %entry (search_archives()) {
+            # Add the new entry to $forwarded_ports_model
+            [$forwarded_ports_model addEntry: %entry];
+        }
+        # Update with the new table
+        [$forwarded_ports_model fireListeners];
+    }, \$forwarded_ports_model, \%forwarded_ports_looking);
+}
+
+popup forwarded_ports_menu {
+    item "Kill port forwarding" {
+        local('$dir $dest $file $ip');
+
+        foreach $row ([$forwarded_ports_table getSelectedRows]) {
+            $bid = [$forwarded_ports_model getValueAt: $row, 1];
+            $localip = [$forwarded_ports_model getValueAt: $row, 3];
+            $localport = [$forwarded_ports_model getValueAt: $row, 5];
+            $remotehost = [$forwarded_ports_model getValueAt: $row, 6];
+            $remoteport = [$forwarded_ports_model getValueAt: $row, 7];
+
+            prompt_confirm("Are you sure you want to stop remote port forwarding from $localip $+ : $+ $localport to $remotehost $+ : $+ $remoteport $+ ?", "Stop remote port forwarding", lambda({
+                brportfwd_stop($bid, $localport);
+                show_message("Remote port forwarding from $localip $+ : $+ $localport stopped.");
+            }, $bid => $bid, $localip => $localip, $localport => $localport));
+        }
+    }
+}
+
+popup view {
+    item "Remote Forwarded Ports" {
+        addTab("Remote Forwarded Ports", create_vis(), "All forwarded/remote forwarded ports");
+    }
+} 
