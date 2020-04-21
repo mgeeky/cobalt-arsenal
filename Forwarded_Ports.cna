@@ -106,13 +106,22 @@ sub search_archives {
     ## Parses archives to pull out uploads for the Leave No Trace tab
     ## Returns all the items to add to the model 
 
-    local('$ip @output @bids %entry $bid');
-    @output = @();
+    local('@output $found @linesAdd @linesRemove @bids %entry $bid');
     @bids = beacon_ids();
+
+    @output = @();
+    @linesAdd = @();
+    @linesRemove = @();
 
     foreach %entry (data_query("archives")) {
 
-        if( indexOf(%entry['data'], 'forward port ') == 0) { 
+        # To speed search up, we only limit enumeration of task-type entries.
+        if(%entry['type'] ne "task") {
+            continue;
+        }
+
+        # rportfwd add task
+        if(indexOf(%entry['data'], "forward port ") == 0) {
             if(%entry['data'] ismatch 'forward port (\d+) to ([^:]+):(\d+)') {
                 ($localport, $remotehost, $remoteport) = matched();
 
@@ -121,7 +130,7 @@ sub search_archives {
                     continue;
                 }
 
-                add(@output, %(
+                add(@linesAdd, %(
                     timestamp => dstamp(%entry['when']),
                     beacon_id => $bid,
                     beacon_pid => beacon_info($bid, "pid"), 
@@ -132,6 +141,38 @@ sub search_archives {
                     remote_port => $remoteport, 
                 ));
             }
+        }
+
+        # rportfwd stop task
+        if(indexOf(%entry['data'], "stop port forward on ") == 0) { 
+            if(%entry['data'] ismatch 'stop port forward on (\d+)') {
+                $localport = matched()[0];
+
+                $bid = %entry['bid'];
+                if ( $bid !in  @bids ) {
+                    continue;
+                }
+
+                add(@linesRemove, %(
+                    beacon_id => $bid,
+                    local_port => $localport, 
+                ));
+            }
+        }
+    }
+
+    # Unfilter lines that stopped remote port forwarding
+    foreach $line1 (@linesAdd) {
+        $found = 0;
+        foreach $line2 (@linesRemove) {
+            if(($line1['local_port'] eq $line2['local_port']) && ($line1['beacon_id'] eq $line2['beacon_id'])) {
+                $found = 1;
+                break;
+            }
+        }
+
+        if($found == 0) {
+            add(@output, $line1);
         }
     }
 
@@ -192,6 +233,10 @@ popup forwarded_ports_menu {
                 show_message("Remote port forwarding from $localip $+ : $+ $localport stopped.");
             }, $bid => $bid, $localip => $localip, $localport => $localport));
         }
+    }
+
+    item "Refresh list" {
+        update_table();
     }
 }
 
