@@ -9,16 +9,36 @@
 #   (httls://github.com/mgeeky)
 #
 
+global('@UPLOADED_FILE_NAMES $TIMES_TO_DISPLAY_COLORS_SCHEME');
+
+@UPLOADED_FILE_NAMES = @();
+$TIMES_TO_DISPLAY_COLORS_SCHEME = 3;
+
 set BEACON_OUTPUT_LS {
     local('$bd $outls $temp $size $ext $dotpos $type $lastmod $name @lines @ls');
+    this('$once');
     @lines = split("\n", ["$2" trim]);
 
-    @sensitive = @('ost', 'sqlite', 'sqlite3', 'kdbx', 'kdb', 'sql', 'dit');
+    @sensitive = @('ost', 'sqlite', 'sqlite3', 'kdbx', 'kdb', 'sql', 'dit', 'kirbi', 'ccache', 'kirbis');
     @archives = @('rar', 'zip', '7z', 'tar', 'gz', 'bz2');
-    @exes = @('sys', 'exe', 'dll');
-    @docs = @('rtf', 'pdf', 'docx', 'doc', 'xls', 'xlsx', 'ppt', 'pptx');
-    @sources = @('cpp', 'h', 'hpp', 'c', 'pl', 'py', 'java', 'rb', 'conf', 
+    @exes = @('msi', 'sys', 'exe', 'dll');
+    @docs = @('rtf', 'txt', 'pdf', 'docx', 'doc', 'xls', 'xlsx', 'ppt', 'pptx');
+    @sources = @('cpp', 'md', 'h', 'hpp', 'c', 'pl', 'sql', 'php', 'py', 'java', 'rb', 'conf', 
         'json', 'yml', 'html', 'js', 'css', 'asp', 'aspx', 'cs', 'vbs', 'vbe', 'jse');
+
+
+    if($once < $TIMES_TO_DISPLAY_COLORS_SCHEME) {
+        $outls .= "\cC[*]\o Colors scheme:\n";
+        $outls .= "\cC[*]\o ---------------------------\n";
+        $outls .= "\cC[*]\o Directories: \c8 YELLOW \o\n";
+        $outls .= "\cC[*]\o Cobalt Strike Uploaded Files: \cB\UBLUE\U\o\n";
+        $outls .= "\cC[*]\o Sensitive files: \c4 RED \o\n";
+        $outls .= "\cC[*]\o Archives: \c7 ORANGE \o\n";
+        $outls .= "\cC[*]\o Source codes: \cC DARK BLUE \o\n";
+        $outls .= "\cC[*]\o Executables: \cD MAGENTA \o\n";
+        $outls .= "\cC[*]\o Documents: \c9 GREEN \o\n";
+        $once += 1;
+    }
     
     $outls .= "\c9[+]\o Location: \cB" . @lines[0] . "\o\n\n";
     $outls .= " Size     Type    Last Modified         Name\n";
@@ -48,7 +68,10 @@ set BEACON_OUTPUT_LS {
         else if($type eq "dir") {
             # Directories in YELLOW
             push(@ls, %(type => $type, name => $name, entry => "\c8 $[8]size $[7]type\o $[21]lastmod\c8 $name \o"));
-        } 
+        } else if($name in @UPLOADED_FILE_NAMES) {
+            # Uploaded Files through Cobalt Strike (the ones we still keep track off) in Blue
+            push(@ls, %(type => $type, name => $name, entry => "\cB $[8]size $[7]type\o $[21]lastmod\cB\U $+ $name $+ \U\o"));
+        }
         else if($ext in @exes) {
             # Executables in Magenta
             push(@ls, %(type => $type, name => $name, entry => "\cD $[8]size $[7]type\o $[21]lastmod\cD $name \o"));
@@ -56,12 +79,12 @@ set BEACON_OUTPUT_LS {
             # Documents in Green
             push(@ls, %(type => $type, name => $name, entry => "\c9 $[8]size $[7]type\o $[21]lastmod\c9 $name \o"));
         } else if($ext in @sources) {
-            # Source codes in Blue
-            push(@ls, %(type => $type, name => $name, entry => "\cB $[8]size $[7]type\o $[21]lastmod\cB $name \o"));
-        } else if($ext in @sources) {
+            # Source codes in Dark Blue
+            push(@ls, %(type => $type, name => $name, entry => "\cC $[8]size $[7]type\o $[21]lastmod\cC $name \o"));
+        } else if($ext in @sensitive) {
             # Sensitive files in Red
             push(@ls, %(type => $type, name => $name, entry => "\c4 $[8]size $[7]type\o $[21]lastmod\c4 $name \o"));
-        } else if($ext in @sources) {
+        } else if($ext in @archives) {
             # Archives in Orange
             push(@ls, %(type => $type, name => $name, entry => "\c7 $[8]size $[7]type\o $[21]lastmod\c7 $name \o"));
         } else {
@@ -76,4 +99,27 @@ set BEACON_OUTPUT_LS {
     }
 
     return $outls;
+}
+
+on beacon_input {
+    local('$args $from $to');
+    
+    if ('upload *' iswm $3) {
+        $args = substr($3, strlen("upload "));
+        push(@UPLOADED_FILE_NAMES, getFileName($args));
+    }
+    else if ($3 ismatch '(?:shell|powershell|run) ren (\w+) (\w+)') {
+        ($from, $to) = matched();
+        $from = getFileName($from);
+        if($from in @UPLOADED_FILE_NAMES) {
+            push(@UPLOADED_FILE_NAMES, getFileName($to));
+        }
+    }
+    #else if ($3 ismatch '(?:shell|powershell|run) del (\w+)') {
+    #    ($from) = matched();
+    #    $from = getFileName($from);
+    #    if($from in @UPLOADED_FILE_NAMES) {
+    #        remove(@UPLOADED_FILE_NAMES, $from);
+    #    }
+    #}
 }
