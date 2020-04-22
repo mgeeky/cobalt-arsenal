@@ -72,7 +72,7 @@ set BEACON_OUTPUT_LS {
         $once += 1;
     }
 
-    $outls .= "\c9[+]\o Location: \cB" . @lines[0] . "\o\n\n";
+    $outls .= "\c9[+]\o Location: \cC" . @lines[0] . "\o\n\n";
     $outls .= " Size       Type    Last Modified         Name\n";
     $outls .= " ----       ----    -------------------   ----\n";
 
@@ -105,7 +105,7 @@ set BEACON_OUTPUT_LS {
         } 
         else if($name in @UPLOADED_FILE_NAMES) {
             # Uploaded Files through Cobalt Strike (the ones we still keep track off) in Blue
-            push(@ls, %(type => $type, name => $name, entry => "\cB $[10]size $[7]type\o $[21]lastmod\cB\U $+ $name $+ \U\o"));
+            push(@ls, %(type => $type, name => $name, entry => "\cB $[10]size $[7]type\o $[21]lastmod\cB \U $+ $name $+ \U\o"));
         }
         else if($ext in @exes) {
             # Executables in Magenta
@@ -153,6 +153,10 @@ on beacon_input {
     if ('upload *' iswm $3) {
         $args = substr($3, strlen("upload "));
         push(@UPLOADED_FILE_NAMES, getFileName($args));
+    }
+    if ($3 ismatch '^upload2 ("[^"]+"|[^\s]+) ("[^"]+"|[^\s]+)$') {
+        ($from, $to) = matched();
+        push(@UPLOADED_FILE_NAMES, getFileName($to));
     }
     else if ($3 ismatch '(?:shell|powershell|run) ren (\w+) (\w+)') {
         ($from, $to) = matched();
