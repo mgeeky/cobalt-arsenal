@@ -1,0 +1,50 @@
+#
+# Simple Beacon console status bar enhancement showing Beacon's last known current
+# working directory path, as well as adding fixed-width to last-seen meter.
+#
+# Author:
+#   Mariusz B. / mgeeky, '20
+#   <mb [at] binary-offensive.com>
+#   (https://github.com/mgeeky)
+#
+
+global('%OPERATING_BEACONS');
+
+set BEACON_SBAR_LEFT { 
+    local('$hostname $username $pid $arch $pwd');
+    $hostname = $2["computer"];
+    $username = $2["user"];
+    $pid = $2["pid"];
+    $arch = $2["arch"];
+    $pwd = %OPERATING_BEACONS[$1]['pwd'];
+
+    return "[\c2 $+ $hostname $+ \o] $username $+ / $+ $pid \cE( $+ $arch $+ )\o\c2 $pwd \o";
+}
+
+set BEACON_SBAR_RIGHT { 
+    local('$note $last');
+    $note = $2["note"];
+    $last = $2["lastf"];
+
+    return "\c6 $note \cE(last: $+ $[5]last $+ )\o";
+}
+
+set BEACON_OUTPUT_ALT {
+    local('$pwd');
+    if($2 ismatch 'Current directory is (.+)') {
+        $pwd = matched()[0];
+        %OPERATING_BEACONS[$1]['pwd'] = $pwd;
+        return "\cC[*]\o Current directory is \cC" . $pwd . "\o\n";
+    }
+
+    return "\cC[*]\o $2\n";
+}
+
+on beacon_output_ls {
+    local('$pwd');
+    $pwd = split("\n", ["$2" trim])[0];
+    if(right($pwd, 2) eq "\\*") {
+        $pwd = substr($pwd, 0, -2);
+    }
+    %OPERATING_BEACONS[$1]['pwd'] = $pwd;
+}
