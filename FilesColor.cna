@@ -147,14 +147,19 @@ set BEACON_OUTPUT_LS {
     return $outls;
 }
 
-on beacon_input {
-    local('$args $from $to');
-    
-    if ('upload *' iswm $3) {
-        $args = substr($3, strlen("upload "));
-        push(@UPLOADED_FILE_NAMES, getFileName($args));
+on beacon_tasked {
+    local('$from $to');
+
+    if($2 ismatch 'Tasked beacon to upload ("[^"]+"|[^\s]+) as (.+)') {
+        ($from, $to) = matched();
+        push(@UPLOADED_FILE_NAMES, getFileName($to));
     }
-    if ($3 ismatch '^upload2 ("[^"]+"|[^\s]+) ("[^"]+"|[^\s]+)$') {
+}
+
+on beacon_input {
+    local('$from $to');
+    
+    if ($3 ismatch '^upload2? ("[^"]+"|[^\s]+) ?("[^"]+"|[^\s]+)?$') {
         ($from, $to) = matched();
         push(@UPLOADED_FILE_NAMES, getFileName($to));
     }
@@ -165,6 +170,8 @@ on beacon_input {
             push(@UPLOADED_FILE_NAMES, getFileName($to));
         }
     }
+
+    # Remove file track as the file was requested to be deleted
     #else if ($3 ismatch '(?:shell|powershell|run) del (\w+)') {
     #    ($from) = matched();
     #    $from = getFileName($from);
