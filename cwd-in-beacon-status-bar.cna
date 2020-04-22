@@ -9,6 +9,7 @@
 #
 
 global('%OPERATING_BEACONS');
+%OPERATING_BEACONS = %();
 
 set BEACON_SBAR_LEFT { 
     local('$hostname $username $pid $arch $pwd');
@@ -29,8 +30,39 @@ set BEACON_SBAR_RIGHT {
     return "\c6 $note \cE(last: $+ $[5]last $+ )\o";
 }
 
+on beacon_tasked {
+	local('$pwd $sep');
+
+	if('cd *' iswm $2) {
+    	$pwd = substr($2, strlen("cd "));
+    	$sep = iff(binfo($1, "os") eq "Windows", "\\", "/");
+
+    	if($pwd eq "..") {
+    		$pwd = substr(%OPERATING_BEACONS[$1]['pwd'], 0, lindexOf(%OPERATING_BEACONS[$1]['pwd'], $sep));
+    		
+    		if($pwd eq "..") {
+    			return "\cC[*]\o $2";
+    		}
+    	}
+    	else if($pwd eq ".") {
+    		return "\cC[*]\o $2";
+    	}
+    	else if((strlen($pwd) >= 2) && (charAt($pwd, 1) ne ":")) {
+    		# relative path?
+    		$pwd = %OPERATING_BEACONS[$1]['pwd'] . $sep . $pwd;
+    		println("debug4: $pwd");
+    	}
+
+    	%OPERATING_BEACONS[$1]['pwd'] = $pwd;
+    	println("debug5: $pwd");
+
+        return "\cC[*]\o $2";
+    }
+}
+
 set BEACON_OUTPUT_ALT {
     local('$pwd');
+
     if($2 ismatch 'Current directory is (.+)') {
         $pwd = matched()[0];
         %OPERATING_BEACONS[$1]['pwd'] = $pwd;
@@ -47,4 +79,16 @@ on beacon_output_ls {
         $pwd = substr($pwd, 0, -2);
     }
     %OPERATING_BEACONS[$1]['pwd'] = $pwd;
+}
+
+on beacons {
+	if(%OPERATING_BEACONS is $null) {
+        %OPERATING_BEACONS = %();
+    }
+
+	foreach $b ($1) {
+		if(iff($b in keys(%OPERATING_BEACONS), "true", $null)) {
+			%OPERATING_BEACONS[$b] = %();
+		}
+	}
 }
