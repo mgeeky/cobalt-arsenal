@@ -1,6 +1,9 @@
 #
 # Simple Beacon console status bar enhancement showing Beacon's last known current
-# working directory path, as well as adding fixed-width to last-seen meter.
+# working directory path, as well as adding fixed-width to last-seen meter. 
+#
+# Additionally, this script enhances 'cd' command to make it restore previous path 
+# if "cd -" was issued (and previous path is known).
 #
 # Author:
 #   Mariusz B. / mgeeky, '20
@@ -10,6 +13,11 @@
 
 global('%OPERATING_BEACONS');
 %OPERATING_BEACONS = %();
+
+beacon_command_register(
+    "cd",
+    "Change directory on host. Use '-' to get back to previous cwd.",
+    "Use: cd [directory]\n\nChange directory on host. Use '-' to get back to previous cwd.");
 
 set BEACON_SBAR_LEFT { 
     local('$hostname $username $pid $arch $pwd');
@@ -31,30 +39,29 @@ set BEACON_SBAR_RIGHT {
 }
 
 on beacon_tasked {
-	local('$pwd $sep');
+    local('$pwd $sep');
 
-	if('cd *' iswm $2) {
-    	$pwd = substr($2, strlen("cd "));
-    	$sep = iff(binfo($1, "os") eq "Windows", "\\", "/");
+    if('cd *' iswm $2) {
+        $pwd = substr($2, strlen("cd "));
+        $sep = iff(binfo($1, "os") eq "Windows", "\\", "/");
 
-    	if($pwd eq "..") {
-    		$pwd = substr(%OPERATING_BEACONS[$1]['pwd'], 0, lindexOf(%OPERATING_BEACONS[$1]['pwd'], $sep));
-    		
-    		if($pwd eq "..") {
-    			return "\cC[*]\o $2";
-    		}
-    	}
-    	else if($pwd eq ".") {
-    		return "\cC[*]\o $2";
-    	}
-    	else if((strlen($pwd) >= 2) && (charAt($pwd, 1) ne ":")) {
-    		# relative path?
-    		$pwd = %OPERATING_BEACONS[$1]['pwd'] . $sep . $pwd;
-    		println("debug4: $pwd");
-    	}
+        if($pwd eq "..") {
+            $pwd = substr(%OPERATING_BEACONS[$1]['pwd'], 0, lindexOf(%OPERATING_BEACONS[$1]['pwd'], $sep));
+            
+            if($pwd eq "..") {
+                return "\cC[*]\o $2";
+            }
+        }
+        else if($pwd eq ".") {
+            return "\cC[*]\o $2";
+        }
+        else if((strlen($pwd) >= 2) && (charAt($pwd, 1) ne ":")) {
+            # relative path?
+            $pwd = %OPERATING_BEACONS[$1]['pwd'] . $sep . $pwd;
+        }
 
-    	%OPERATING_BEACONS[$1]['pwd'] = $pwd;
-    	println("debug5: $pwd");
+        %OPERATING_BEACONS[$1]['prev-pwd'] = %OPERATING_BEACONS[$1]['pwd'];
+        %OPERATING_BEACONS[$1]['pwd'] = $pwd;
 
         return "\cC[*]\o $2";
     }
@@ -65,6 +72,7 @@ set BEACON_OUTPUT_ALT {
 
     if($2 ismatch 'Current directory is (.+)') {
         $pwd = matched()[0];
+        %OPERATING_BEACONS[$1]['prev-pwd'] = %OPERATING_BEACONS[$1]['pwd'];
         %OPERATING_BEACONS[$1]['pwd'] = $pwd;
         return "\cC[*]\o Current directory is \cC" . $pwd . "\o\n";
     }
@@ -78,6 +86,7 @@ on beacon_output_ls {
     if(right($pwd, 2) eq "\\*") {
         $pwd = substr($pwd, 0, -2);
     }
+    %OPERATING_BEACONS[$1]['prev-pwd'] = %OPERATING_BEACONS[$1]['pwd'];
     %OPERATING_BEACONS[$1]['pwd'] = $pwd;
 }
 
@@ -91,4 +100,13 @@ on beacons {
 			%OPERATING_BEACONS[$b] = %();
 		}
 	}
+}
+
+alias cd {
+    if(($2 eq "-") && (strlen(%OPERATING_BEACONS[$1]['prev-pwd']) > 0)) {
+        bcd($1, %OPERATING_BEACONS[$1]['prev-pwd']);
+        return;
+    }
+
+    bcd($1, $2);
 }

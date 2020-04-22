@@ -11,7 +11,7 @@ beacon> upload implant.exe \\DC1\c$\windows\temp\implant.exe
 
 ```
 
-- **`cwd-in-beacon-status-bar.cna`** - Simple Beacon console status bar enhancement showing Beacon's last known current working directory path, as well as adding fixed-width to last-seen meter.
+- **`cwd-in-beacon-status-bar.cna`** - Simple Beacon console status bar enhancement showing Beacon's last known current working directory path, as well as adding fixed-width to last-seen meter. Additionally, this script enhances `cd` command to make it restore previous path if `cd -` was issued (and previous path is known).
 
 - **`custom-powershell-hooks.cna`** - This script introduces several different methods for Powershell download and execution primitives, other than Cobalt Strike's default `(Net.WebClient).DownloadString` and `IEX()`:
 ```
