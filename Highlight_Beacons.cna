@@ -10,7 +10,7 @@
 global('%KNOWN_BEACONS $HIGHLIGHT_DURATION %HIGHLIGHTS');
 
 # Hightlight duration expressed in miliseconds
-$HIGHLIGHT_DURATION = 5000;
+$HIGHLIGHT_DURATION = 3000;
 
 %HIGHLIGHTS = %(
     initial => "good",
@@ -29,6 +29,17 @@ sub getBeaconEntry {
     return @(bdata($1));
 }
 
+sub highlightBeacon {
+    local('@entry $bid $col $cur');
+    (@entry, $bid, $col) = @_;
+    $cur = binfo($bid, "_accent");
+
+    if($cur ne %HIGHLIGHTS[$col]) {
+        %KNOWN_BEACONS[$bid]["prev-accent"] = $cur;
+        highlight("beacons", @entry, %HIGHLIGHTS[$col]);
+    }
+}
+
 on beacon_initial {
     local('@entry');
 
@@ -42,8 +53,7 @@ on beacon_initial {
     @entry = getBeaconEntry($1);
     if(@entry) {
         %KNOWN_BEACONS[$1]["status"] = 'initial';
-        %KNOWN_BEACONS[$1]["prev-accent"] = binfo($1, "_accent");
-        highlight("beacons", @entry, %HIGHLIGHTS["initial"]);
+        highlightBeacon(@entry, $1, "initial");
     }
 }
 
@@ -58,8 +68,7 @@ on beacon_output {
 
     @entry = getBeaconEntry($1);
     if(@entry && (%KNOWN_BEACONS[$1]["status"] eq "") && (%HIGHLIGHTS["output"] ne "")) {
-        %KNOWN_BEACONS[$1]["prev-accent"] = binfo($1, "_accent");
-        highlight("beacons", @entry, %HIGHLIGHTS["output"]);
+        highlightBeacon(@entry, $1, "output");
     }
 }
 
@@ -75,8 +84,7 @@ on beacon_output_alt {
 
     @entry = getBeaconEntry($1);
     if(@entry && (%KNOWN_BEACONS[$1]["status"] eq "") && (%HIGHLIGHTS["output"] ne "")) {
-        %KNOWN_BEACONS[$1]["prev-accent"] = binfo($1, "_accent");
-        highlight("beacons", @entry, %HIGHLIGHTS["output"]);
+        highlightBeacon(@entry, $1, "output");
     }
 }
 
@@ -91,9 +99,8 @@ on beacon_error {
 
     @entry = getBeaconEntry($1);
     if(@entry && (%HIGHLIGHTS["error"] ne "")) {
-        %KNOWN_BEACONS[$1]["prev-accent"] = binfo($1, "_accent");
         %KNOWN_BEACONS[$1]["status"] = 'error';
-        highlight("beacons", @entry, %HIGHLIGHTS["error"]);
+        highlightBeacon(@entry, $1, "error");
     }
 }
 
@@ -109,8 +116,7 @@ on beacon_input {
         @entry = getBeaconEntry($1);
         if(@entry) {
             %KNOWN_BEACONS[$1]["status"] = 'exiting';
-            %KNOWN_BEACONS[$1]["prev-accent"] = binfo($1, "_accent");
-            highlight("beacons", @entry, %HIGHLIGHTS["exit"]);
+            highlightBeacon(@entry, $1, "exit");
         }
 
         remove(%KNOWN_BEACONS, %KNOWN_BEACONS[$1]);
@@ -129,9 +135,8 @@ on heartbeat_1s {
                     @entry = getBeaconEntry($bid);
                     if(@entry) {
                         if(%KNOWN_BEACONS[$bid]["status"] eq "exiting") {
-                            %KNOWN_BEACONS[$bid]["prev-accent"] = binfo($1, "_accent");
                             %KNOWN_BEACONS[$1]["status"] = 'exited';
-                            highlight("beacons", @entry, %HIGHLIGHTS["exited"]);
+                            highlightBeacon(@entry, $bid, "exited");
                         }
                         else {
                             #%KNOWN_BEACONS[$bid]["prev-accent"] = binfo($1, "_accent");

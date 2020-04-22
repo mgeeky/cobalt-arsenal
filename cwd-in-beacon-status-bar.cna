@@ -25,7 +25,7 @@ set BEACON_SBAR_LEFT {
     $username = $2["user"];
     $pid = $2["pid"];
     $arch = $2["arch"];
-    $pwd = %OPERATING_BEACONS[$1]['pwd'];
+    $pwd = %OPERATING_BEACONS[$1]['cwd'];
 
     return "[\c2 $+ $hostname $+ \o] $username $+ / $+ $pid \cE( $+ $arch $+ )\o\c2 $pwd \o";
 }
@@ -46,7 +46,7 @@ on beacon_tasked {
         $sep = iff(binfo($1, "os") eq "Windows", "\\", "/");
 
         if($pwd eq "..") {
-            $pwd = substr(%OPERATING_BEACONS[$1]['pwd'], 0, lindexOf(%OPERATING_BEACONS[$1]['pwd'], $sep));
+            $pwd = substr(%OPERATING_BEACONS[$1]['cwd'], 0, lindexOf(%OPERATING_BEACONS[$1]['cwd'], $sep));
             
             if($pwd eq "..") {
                 return "\cC[*]\o $2";
@@ -57,11 +57,11 @@ on beacon_tasked {
         }
         else if((strlen($pwd) >= 2) && (charAt($pwd, 1) ne ":")) {
             # relative path?
-            $pwd = %OPERATING_BEACONS[$1]['pwd'] . $sep . $pwd;
+            $pwd = %OPERATING_BEACONS[$1]['cwd'] . $sep . $pwd;
         }
 
-        %OPERATING_BEACONS[$1]['prev-pwd'] = %OPERATING_BEACONS[$1]['pwd'];
-        %OPERATING_BEACONS[$1]['pwd'] = $pwd;
+        %OPERATING_BEACONS[$1]['prev-cwd'] = %OPERATING_BEACONS[$1]['cwd'];
+        %OPERATING_BEACONS[$1]['cwd'] = $pwd;
 
         return "\cC[*]\o $2";
     }
@@ -72,22 +72,32 @@ set BEACON_OUTPUT_ALT {
 
     if($2 ismatch 'Current directory is (.+)') {
         $pwd = matched()[0];
-        %OPERATING_BEACONS[$1]['prev-pwd'] = %OPERATING_BEACONS[$1]['pwd'];
-        %OPERATING_BEACONS[$1]['pwd'] = $pwd;
+        %OPERATING_BEACONS[$1]['prev-cwd'] = %OPERATING_BEACONS[$1]['cwd'];
+        %OPERATING_BEACONS[$1]['cwd'] = $pwd;
         return "\cC[*]\o Current directory is \cC" . $pwd . "\o\n";
     }
 
     return "\cC[*]\o $2\n";
 }
 
+on beacon_input {
+    if (["$3" trim] eq "ls") {
+        %OPERATING_BEACONS[$1]['cwd-use-ls'] = 1;
+    }
+}
+
 on beacon_output_ls {
     local('$pwd');
-    $pwd = split("\n", ["$2" trim])[0];
-    if(right($pwd, 2) eq "\\*") {
-        $pwd = substr($pwd, 0, -2);
+
+    if(%OPERATING_BEACONS[$1]['cwd-use-ls'] == 1) {
+        $pwd = split("\n", ["$2" trim])[0];
+        if(right($pwd, 2) eq "\\*") {
+            $pwd = substr($pwd, 0, -2);
+        }
+        %OPERATING_BEACONS[$1]['prev-cwd'] = %OPERATING_BEACONS[$1]['cwd'];
+        %OPERATING_BEACONS[$1]['cwd'] = $pwd;
+        %OPERATING_BEACONS[$1]['cwd-use-ls'] = 0;
     }
-    %OPERATING_BEACONS[$1]['prev-pwd'] = %OPERATING_BEACONS[$1]['pwd'];
-    %OPERATING_BEACONS[$1]['pwd'] = $pwd;
 }
 
 on beacons {
@@ -103,8 +113,8 @@ on beacons {
 }
 
 alias cd {
-    if(($2 eq "-") && (strlen(%OPERATING_BEACONS[$1]['prev-pwd']) > 0)) {
-        bcd($1, %OPERATING_BEACONS[$1]['prev-pwd']);
+    if(($2 eq "-") && (strlen(%OPERATING_BEACONS[$1]['prev-cwd']) > 0)) {
+        bcd($1, %OPERATING_BEACONS[$1]['prev-cwd']);
         return;
     }
 

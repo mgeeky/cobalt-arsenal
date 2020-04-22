@@ -1,6 +1,9 @@
 #
 # Color Coded Files Listing.
 #
+# A nice script that colorizes your `ls` output and keeps track of uploaded files 
+# to let you highlight them. 
+#
 # Be wary of additional performance hit when listing big directories imposed by 
 # their listing processing, coloring and sorting that this script does.
 #
@@ -9,7 +12,7 @@
 # Author:
 #   Mariusz B. / mgeeky, '20
 #   <mb [at] binary-offensive.com>
-#   (httls://github.com/mgeeky)
+#   (https://github.com/mgeeky)
 #
 
 global('@UPLOADED_FILE_NAMES $TIMES_TO_DISPLAY_COLORS_SCHEME');
@@ -49,13 +52,14 @@ set BEACON_OUTPUT_LS {
 
     @lines = split("\n", ["$2" trim]);
 
-    @configuration = @('config', 'conf', 'json', 'yml', 'inf', 'properties');
-    @sensitive = @('ost', 'sqlite', 'sqlite3', 'kdbx', 'kdb', 'sql', 'dit', 'kirbi', 'ccache', 'kirbis');
-    @archives = @('rar', 'zip', '7z', 'tar', 'gz', 'bz2');
-    @exes = @('msi', 'sys', 'exe', 'dll');
-    @docs = @('msg', 'rtf', 'txt', 'pdf', 'docx', 'doc', 'xls', 'xlsx', 'ppt', 'pptx');
+    @configuration = @('config', 'conf', 'json', 'yml', 'xml', 'inf', 'properties', 'settings');
+    @sensitive = @('ost', 'dmp', 'sqlite', 'sqlite3', 'kdbx', 'kdb', 'dit', 'kirbi', 'ccache', 'kirbis', 'git');
+    @sensitive_files = @('ntds.dit', 'lsass.dmp');
+    @archives = @('rar', 'zip', '7z', 'tar', 'gz', 'bz2', 'iso');
+    @exes = @('msi', 'sys', 'exe', 'dll', 'bat', 'sct');
+    @docs = @('csv', 'odt', 'dotx', 'dotm', 'docm', 'xlam', 'xll', 'xlm', 'xlsm', 'xltx', 'msg', 'rtf', 'txt', 'pdf', 'docx', 'doc', 'xls', 'xlsx', 'ppt', 'pptx', 'pptm', 'odp', 'ppsm', 'ppa', 'ppam');
     @sources = @('cpp', 'md', 'h', 'hpp', 'c', 'pl', 'sql', 'php', 'py', 'java', 'rb', 
-        'html', 'js', 'css', 'asp', 'aspx', 'cs', 'vbs', 'vbe', 'jse');
+        'html', 'js', 'css', 'asp', 'aspx', 'cs', 'vbs', 'vbe', 'jse', 'ps1', 'sln', 'vcxproj', 'csproj', 'gitignore', 'gitmodules', 'gitattributes');
 
 
     if($once < $TIMES_TO_DISPLAY_COLORS_SCHEME) {
@@ -107,6 +111,10 @@ set BEACON_OUTPUT_LS {
             # Uploaded Files through Cobalt Strike (the ones we still keep track off) in Blue
             push(@ls, %(type => $type, name => $name, entry => "\cB $[10]size $[7]type\o $[21]lastmod\cB \U $+ $name $+ \U\o"));
         }
+        else if(($ext in @sensitive) || (lc($name) in @sensitive_files)) {
+            # Sensitive files in Red
+            push(@ls, %(type => $type, name => $name, entry => "\c4 $[10]size $[7]type\o $[21]lastmod\c4 $name \o"));
+        }
         else if($ext in @exes) {
             # Executables in Magenta
             push(@ls, %(type => $type, name => $name, entry => "\cD $[10]size $[7]type\o $[21]lastmod\cD $name \o"));
@@ -114,22 +122,18 @@ set BEACON_OUTPUT_LS {
         else if($ext in @interesting) {
             # Configuration files in Dark Green
             push(@ls, %(type => $type, name => $name, entry => "\c3 $[10]size $[7]type\o $[21]lastmod\c3 $name \o"));
-        } 
-        else if($ext in @docs) {
-            # Documents in Green
-            push(@ls, %(type => $type, name => $name, entry => "\c9 $[10]size $[7]type\o $[21]lastmod\c9 $name \o"));
-        } 
+        }
         else if($ext in @sources) {
             # Source codes in Dark Blue
             push(@ls, %(type => $type, name => $name, entry => "\cC $[10]size $[7]type\o $[21]lastmod\cC $name \o"));
-        } 
-        else if($ext in @sensitive) {
-            # Sensitive files in Red
-            push(@ls, %(type => $type, name => $name, entry => "\c4 $[10]size $[7]type\o $[21]lastmod\c4 $name \o"));
-        } 
+        }
         else if($ext in @archives) {
             # Archives in Orange
             push(@ls, %(type => $type, name => $name, entry => "\c7 $[10]size $[7]type\o $[21]lastmod\c7 $name \o"));
+        }
+        else if($ext in @docs) {
+            # Documents in Green
+            push(@ls, %(type => $type, name => $name, entry => "\c9 $[10]size $[7]type\o $[21]lastmod\c9 $name \o"));
         } 
         else {
             push(@ls, %(type => $type, name => $name, entry => " $[10]size $[7]type $[21]lastmod $name \o"));
@@ -145,6 +149,22 @@ set BEACON_OUTPUT_LS {
     $totalsize = interpretSize($totalsize);
     $outls .= "\nFiles and dirs count: " . size(@ls) . ", total size of files: $totalsize \n";
     return $outls;
+}
+
+sub collectUploadedFiles {
+    local('%entry');
+    foreach %entry ((data_query('archives'))) {
+        if (%entry['type'] ne "task") {
+            continue;
+        }
+
+        if(indexOf(%entry['data'], "upload ") == 0) {
+            if(%entry['data'] ismatch '^upload ("[^"]+"|[^\s]+) as ("[^"]+"|[^\s]+)$') {
+                ($from, $to) = matched();
+                push(@UPLOADED_FILE_NAMES, getFileName($to));
+            }
+        }
+    }
 }
 
 on beacon_tasked {
@@ -180,3 +200,5 @@ on beacon_input {
     #    }
     #}
 }
+
+collectUploadedFiles();
