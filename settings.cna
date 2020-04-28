@@ -10,12 +10,10 @@
 #
 # Example use case:
 #   -----------------------------------------------------------
-#   
 #   sub getOptions {
 #       local('%opts $pos');
 #   
 #       %opts = loadOptions($savedSettingsFile);
-#       @optsKeys = ;
 #       if(size(keys(%opts)) > 0) {
 #           $pos = strlen("arsenal.defaults.");
 #           foreach $key (keys(%opts)) {
@@ -26,14 +24,13 @@
 #           }
 #       }
 #   
-#       arsenal::debug("Arsenal options loaded.");
+#       println("Script options loaded.");
 #   }
 #   
 #   sub putOptions {
 #       saveOptions($savedSettingsFile, %defaults, "defaults.");
 #       println("Script options saved.");
 #   }
-#
 #   -----------------------------------------------------------
 #
 # Author:
