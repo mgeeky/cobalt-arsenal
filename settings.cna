@@ -1,21 +1,42 @@
 #
 # Options save & load routines for Cobalt Strike scripts.
 #
-# This script file exposes two functions:
-#   - saveOptions
-#   - loadOptions
-#
 # They allow for saving & restoring script settings in a form of 
 # a hash object in an arbitrary config file. 
 #
+# This script file exposes two functions:
+#   1) Saves input hash object to the file specified by first parameter, where each option
+#      will be stored in output file according to it's hash-key name, optionally prefix by third param:
+#
+#       saveOptions(
+#           $filename, 
+#           %dictWithOptions, 
+#           [optional]"save.these.options.with.prefix.in.name"
+#       )
+#  
+#   2) Loads given in first param settings file and returns a hash object with keys being setting names,
+#      optionally filtered by their prefixes:
+#
+#       %fetchedOptionsDict = loadOptions(
+#           $filename, 
+#           [optional]"load.only.options.with.prefix.in.name"
+#       )
+#
 # Example use case:
+#
 #   -----------------------------------------------------------
+#   global('%defaults $savedSettingsFile');
+#   
+#   $savedSettingsFile = "settings.conf";
+#   %defaults["test1"] = "test2";
+#   %defaults["test3"] = 5;
+#
 #   sub getOptions {
 #       local('%opts $pos');
 #   
 #       %opts = loadOptions($savedSettingsFile);
 #       if(size(keys(%opts)) > 0) {
-#           $pos = strlen("arsenal.defaults.");
+#           $pos = strlen("defaults.");
 #           foreach $key (keys(%opts)) {
 #               if("defaults.*" iswm $key) {
 #                   $k = substr($key, $pos);
@@ -31,6 +52,12 @@
 #       saveOptions($savedSettingsFile, %defaults, "defaults.");
 #       println("Script options saved.");
 #   }
+#   -----------------------------------------------------------
+#
+# Contents of settings.conf:
+#
+#   defaults.test1 = test2
+#   defaults.test3 = 5
 #   -----------------------------------------------------------
 #
 # Author:

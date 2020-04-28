@@ -42,7 +42,7 @@ Using `rportfwd` here and there quickly consumes pool of available local ports f
 
 - **`Payload_Variants_Generator.cna`** - This script generates stageless payload variants per each available architecture and output format type. Compatible with Cobalt Strike 4.0+.
 
-- **`settings.cna`** - Script that offers sample implementation for `saveOptions` and `loadOptins` routines, intended to store & restore settings from an external file.
+- **`settings.cna`** - Script that offers sample implementation for `saveOptions` and `loadOptions` routines, intended to store & restore settings from an external file.
 
 - **`smart-autoppid.cna`** - Autoppid - script that smartely invokes PPID for every new checkin in Beacon. PPID command requires invoked Beacon to have the same Integrity level as the process it want's to assume as it's Parent. That's due to how InitializeProcThreadAttributeList with PROC_THREAD_ATTRIBUTE_PARENT_PROCESS works. In order to avoid harcoded explorer.exe PID assumption, we can look around for a configurable process name and then try to find that process running on the highest available for us integrity level. In that case, unprivileged user would assume PPID of for instance svchost.exe running as that user, wherease the privileged one - could go for the svchost.exe running as NT AUTHORITY\SYSTEM. We aim to smartely pick the most advantageous target, in a dynamic fashion.
 
