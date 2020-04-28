@@ -1,0 +1,245 @@
+#
+# Options save & load routines for Cobalt Strike scripts.
+#
+# This script file exposes two functions:
+#   - saveOptions
+#   - loadOptions
+#
+# They allow for saving & restoring script settings in a form of 
+# a hash object in an arbitrary config file. 
+#
+# Example use case:
+#   -----------------------------------------------------------
+#   
+#   sub getOptions {
+#       local('%opts $pos');
+#   
+#       %opts = loadOptions($savedSettingsFile);
+#       @optsKeys = ;
+#       if(size(keys(%opts)) > 0) {
+#           $pos = strlen("arsenal.defaults.");
+#           foreach $key (keys(%opts)) {
+#               if("defaults.*" iswm $key) {
+#                   $k = substr($key, $pos);
+#                   %defaults[$k] = %opts[$key];
+#               }
+#           }
+#       }
+#   
+#       arsenal::debug("Arsenal options loaded.");
+#   }
+#   
+#   sub putOptions {
+#       saveOptions($savedSettingsFile, %defaults, "defaults.");
+#       println("Script options saved.");
+#   }
+#
+#   -----------------------------------------------------------
+#
+# Author:
+#   Mariusz B. / mgeeky, '20
+#   <mb [at] binary-offensive.com>
+#   (https://github.com/mgeeky)
+#
+
+
+#
+# =======================================================================
+#
+
+#
+# saveOptions(
+#   $filename, 
+#   %dictWithOptions, 
+#   [optional]"save.these.options.with.prefix.in.name")
+#
+sub saveOptions {
+    local('$handle $i $newl $updated $append @output @contents $optionsPrefix $fileName %options $p $k $key $val %fetchedOptions');
+    $fileName = $1;
+    %options = $2;
+    $optionsPrefix = $3;
+
+    @output = @();
+    @contents = @();
+
+    if(-exists $fileName) {
+        if(!-canread $fileName) {
+            show_error("Cannot read settings file: $fileName");
+            return;
+        }
+
+        $handle = openf($fileName);
+        if($handle) {
+            while $line (readln($handle)) {
+                $line = ["$line" trim];
+                push(@contents, $line);
+            }
+            closef($handle);
+        }
+    }
+
+    $handle = openf(">" . $fileName);
+    if($handle is $null) {
+        show_error("Could not save options: Unable to open/create file.");
+        return;
+    }
+
+    if(size(@contents) > 0) {
+        for($i = 0; $i < size(@contents); $i++) {
+            if(strlen(@contents[$i]) < 2) {
+                push(@output, @contents[$i]);
+                continue;
+            }
+            else if('#*' iswm @contents[$i]) {
+                push(@output, @contents[$i]);
+                continue;
+            }
+
+            $updated = 0;
+            if(@contents[$i] ismatch '([^=]+)\s*=\s*(.+)') {
+                ($key, $oldval) = matched();
+                $key = ["$key" trim];
+                $oldval = ["$oldval" trim];
+
+                foreach $key2 (keys(%options)) {
+                    $k = $optionsPrefix . $key2;
+
+                    if($key eq $k) {
+                        $val = %options[$key2];
+                        $val = ["$val" trim];
+
+                        $newl = substr(@contents[$i], 0, indexOf(@contents[$i], $oldval));
+
+                        if(strlen($val) == 0) {
+                            $newl .= "\"\"";
+                        }
+                        else if(indexOf($val, ' ')) {
+                            $newl .= "\" $+ $val $+ \"";
+                        }
+                        else {
+                            $newl .= $val;
+                        }
+
+                        push(@output, $newl);
+
+                        $updated = 1;
+                    }
+                }
+            }
+
+            if($updated == 0) {
+                push(@output, @contents[$i]);
+            }
+        }
+    }
+    else {
+        foreach $key (keys(%options)) {
+            $k = $optionsPrefix . $key;
+            $val = %options[$key];
+            $val = ["$val" trim];
+
+            if(strlen($val) == 0) {
+                push(@output, "$k = \"\"");
+            }
+            else if(indexOf($val, ' ')) {
+                push(@output, "$k = \" $+ $val $+ \"");
+            }
+            else {
+                push(@output, "$k = $val");
+            }
+        }
+    }
+
+    printAll($handle, @output);
+    closef($handle);
+}
+
+#
+# %fetchedOptionsDict = loadOptions($filename, [optional]"load.only.options.with.prefix.in.name")
+#
+sub loadOptions {
+    local('$handle @lines $fileName $p $key $loadPrefix $val %fetchedOptions');
+    $fileName = $1;
+    $loadPrefix = $2;
+    %fetchedOptions = %();
+
+    if(!-exists $fileName) {
+        show_error("No saved settings file ( $+ $fileName $+ )!");
+        return $null;
+    }
+
+    if(!-canread $fileName) {
+        show_error("Cannot read settings file: $fileName");
+        return $null;
+    }
+
+    $handle = openf($fileName);
+    while $line (readln($handle)) {
+        push(@lines, ["$line" trim]);
+    }
+
+    closef($handle);
+ 
+    for($lineNum = 0; $lineNum < size(@lines); $lineNum++) {
+        $line = @lines[$lineNum];
+
+        if(strlen($line) <= 2) {
+            continue;
+        }
+        else if('#*' iswm $line) {
+            continue;
+        }
+
+        $p = indexOf($line, '=');
+        if ($p) {
+
+            $key = substr($line, 0, $p);
+            $key = ["$key" trim];
+
+            $val = substr($line, $p + 1);
+            $val = ["$val" trim];
+
+            if(strlen($key) == 0) {
+                show_error("Error in config file ( $+ $fileName $+ ) in line $lineNum $+ :\nLine does not conform 'key = value' form, as there is no key:\n\n $line");
+                return $null;
+            }
+
+            if(right($val, 1) eq ";") {
+                $val = substr($val, 0, -1);
+            }
+
+            if(left($val, 1) eq '"') {
+                if(right($val, 1) eq '"') {
+                    $val = substr($val, 1, -1);
+                }
+                else {
+                    show_error("Error in config file ( $+ $fileName $+ ) in line $lineNum $+ :\nUnclosed quote mark on line:\n\n $line");
+                    return $null;
+                }
+            }
+
+            if($loadPrefix && strlen($loadPrefix) > 0) {
+                if(indexOf($key, $loadPrefix) != 0) {
+                    continue;
+                }
+            }
+
+            if($key && strlen($key) > 0) {
+                %fetchedOptions[$key] = $val;
+            }
+            else {
+                %fetchedOptions[$key] = "";
+            }
+        }
+        else {
+            show_error("Error in config file ( $+ $fileName $+ ) in line $lineNum $+ :\nNo 'key = value' assignment in line:\n\n $line");
+            return $null;
+        }
+    }
+
+    return %fetchedOptions;
+}
+
+#
+# =======================================================================
+#

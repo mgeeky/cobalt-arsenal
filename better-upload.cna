@@ -33,15 +33,15 @@ sub interpretSize {
         $size .= $s . "B"; 
     }
     else if($s < 1024 * 1024) { 
-        $size = round($s / 1024.0, 2);
+        $size = round($s / 1024.0, 1);
         $size .= "KB";
     }
     else if($s < 1024 * 1024 * 1024) { 
-        $size = round(($s / 1024.0) / 1024, 2); 
+        $size = round(($s / 1024.0) / 1024, 1); 
         $size .= "MB";
     }
     else if($s < 1024 * 1024 * 1024 * 1024) { 
-        $size = round((($s / 1024.0) / 1024) / 1024, 2); 
+        $size = round((($s / 1024.0) / 1024) / 1024, 1); 
         $size .= "GB";
     }
 
@@ -53,9 +53,10 @@ alias upload {
     ($bid, $localpath, $remotepath) = @_;
 
     if($localpath is $null || strlen($localpath) == 0) {
-        prompt_file_open("Choose a file", $null, $false, lambda({
-            $localpath = $1;
-        }, $localpath => $localpath));
+        prompt_file_open("Choose a file", $null, false, lambda({
+            bupload($bid, $1);
+        }, $bid => $bid));
+        return;
     }
 
     if($localpath is $null || strlen($localpath) == 0) {
@@ -63,10 +64,13 @@ alias upload {
         return;
     }
 
-    if($remotepath is $null || strlen($remotepath) == 0) {
-        #$remotepath = getFileName($localpath);
+    if(!-exists $localpath) {
+        berror($1, "Specified input file does not exist: ( $+ $localpath $+ )");
+        return;
+    }
 
-        bupload($1, $localpath);
+    if($remotepath is $null || strlen($remotepath) == 0) {
+        bupload($bid, $localpath);
         return;
     }
 

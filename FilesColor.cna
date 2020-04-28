@@ -31,15 +31,15 @@ sub interpretSize {
         $size .= $s . "B"; 
     }
     else if($s < 1024 * 1024) { 
-        $size = round($s / 1024.0, 2);
+        $size = round($s / 1024.0, 1);
         $size .= "KB";
     }
     else if($s < 1024 * 1024 * 1024) { 
-        $size = round(($s / 1024.0) / 1024, 2); 
+        $size = round(($s / 1024.0) / 1024, 1); 
         $size .= "MB";
     }
     else if($s < 1024 * 1024 * 1024 * 1024) { 
-        $size = round((($s / 1024.0) / 1024) / 1024, 2); 
+        $size = round((($s / 1024.0) / 1024) / 1024, 1); 
         $size .= "GB";
     }
 
@@ -66,7 +66,7 @@ set BEACON_OUTPUT_LS {
         $outls .= "\cC[*]\o Colors scheme:\n";
         $outls .= "\cC[*]\o ---------------------------\n";
         $outls .= "\cC[*]\o Directories: \c8 YELLOW \o\n";
-        $outls .= "\cC[*]\o Cobalt Strike Uploaded Files: \cB\UBLUE\U\o\n";
+        $outls .= "\cC[*]\o Cobalt Strike Uploaded Files: \cBBLUE\o\n";
         $outls .= "\cC[*]\o Sensitive files: \c4 RED \o\n";
         $outls .= "\cC[*]\o Configuration files: \c3 DARK GREEN \o\n";
         $outls .= "\cC[*]\o Archives: \c7 ORANGE \o\n";
@@ -109,7 +109,7 @@ set BEACON_OUTPUT_LS {
         } 
         else if($name in @UPLOADED_FILE_NAMES) {
             # Uploaded Files through Cobalt Strike (the ones we still keep track off) in Blue
-            push(@ls, %(type => $type, name => $name, entry => "\cB $[10]size $[7]type\o $[21]lastmod\cB \U $+ $name $+ \U\o"));
+            push(@ls, %(type => $type, name => $name, entry => "\cB $[10]size $[7]type\o $[21]lastmod\cB $name $+ \o"));
         }
         else if(($ext in @sensitive) || (lc($name) in @sensitive_files)) {
             # Sensitive files in Red
@@ -182,13 +182,6 @@ on beacon_input {
     if ($3 ismatch '^upload2? ("[^"]+"|[^\s]+) ?("[^"]+"|[^\s]+)?$') {
         ($from, $to) = matched();
         push(@UPLOADED_FILE_NAMES, getFileName($to));
-    }
-    else if ($3 ismatch '(?:shell|powershell|run) ren (\w+) (\w+)') {
-        ($from, $to) = matched();
-        $from = getFileName($from);
-        if($from in @UPLOADED_FILE_NAMES) {
-            push(@UPLOADED_FILE_NAMES, getFileName($to));
-        }
     }
 
     # Remove file track as the file was requested to be deleted
