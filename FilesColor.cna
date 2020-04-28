@@ -152,8 +152,13 @@ set BEACON_OUTPUT_LS {
 }
 
 sub collectUploadedFiles {
-    local('%entry');
-    foreach %entry ((data_query('archives'))) {
+    local('%entry %archives');
+    %archives = data_query('archives');
+    if(size(%archives) == 0) {
+        return;
+    }
+    
+    foreach %entry (%archives) {
         if (%entry['type'] ne "task") {
             continue;
         }
