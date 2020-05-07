@@ -10,7 +10,7 @@
 global('%KNOWN_BEACONS $HIGHLIGHT_DURATION %HIGHLIGHTS');
 
 # Hightlight duration expressed in miliseconds
-$HIGHLIGHT_DURATION = 3000;
+$HIGHLIGHT_DURATION = 5000;
 
 %HIGHLIGHTS = %(
     initial => "good",

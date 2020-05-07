@@ -104,14 +104,17 @@ on beacon_error {
 
         if($err == 87) {
             blog2($1, "Catched PPID error: \c4Previous parent process no longer exists\o. Finding a new one...");
+            fireAlias($1, "autoppid", "quiet");
+        }
+        else if($err == 5) {
+            blog2($1, "Catched PPID error:\c4 $err $+ \o. Access Denied. Don't know how to proceed. Reseting PPID to none.");
+            bppid($1, 0);
         }
         else {
             blog2($1, "Catched PPID error:\c4 $err $+ \o. Will find another candidate for PPID spoofing.");
+            fireAlias($1, "autoppid", "quiet");
         }
         
-        # Parent PID spoofing
-        fireAlias($1, "autoppid", "quiet");
-        
-        blog2($1, "\n\c8    Repeat your last command as it failed.\o\n");
+        blog2($1, "\c8    Repeat your last command as it failed.\o");
     }
 }
