@@ -43,7 +43,7 @@ Using `rportfwd` here and there quickly consumes pool of available local ports f
 - **`Payload_Variants_Generator.cna`** - This script generates stageless payload variants per each available architecture and output format type. Compatible with Cobalt Strike 4.0+.
 
 - **`parse-error-codes.cna`** - A handy script that parses reported error codes and prints their corresponding Windows related meaning directly in Beacon's console output.
-- 
+
   **From:**
   ```
   beacon> ls C:\gdgsdfgdf
