@@ -15,31 +15,36 @@
 #   (https://github.com/mgeeky)
 #
 
-global('@UPLOADED_FILE_NAMES $TIMES_TO_DISPLAY_COLORS_SCHEME');
+global('@UPLOADED_FILE_NAMES $TIMES_TO_DISPLAY_COLORS_SCHEME $MAX_OUTPUT_SIZE_TO_COLORIZE');
 
 @UPLOADED_FILE_NAMES = @();
 $TIMES_TO_DISPLAY_COLORS_SCHEME = 3;
 
+# If files listing output is going to be longer than the below threshold, avoid processing
+# that output to return results faster
+$MAX_OUTPUT_SIZE_TO_COLORIZE = 65536;
+
 sub interpretSize {
     local('$s $size');
-    $s = $1;
+    $s = 0L;
+    $s = long($1);
 
     if($s == 0) { 
         $size = ""; 
     }
-    else if($s < 1024) { 
-        $size .= $s . "B"; 
+    else if($s < 1024L) { 
+        $size .= long($s) . "B"; 
     }
-    else if($s < 1024 * 1024) { 
-        $size = round($s / 1024.0, 1);
+    else if($s < long(1024L * 1024L)) { 
+        $size = long(round($s / 1024.0, 1));
         $size .= "KB";
     }
-    else if($s < 1024 * 1024 * 1024) { 
-        $size = round(($s / 1024.0) / 1024, 1); 
+    else if($s < long(1024L * 1024L * 1024L)) { 
+        $size = long(round(($s / 1024.0) / 1024, 1)); 
         $size .= "MB";
     }
-    else if($s < 1024 * 1024 * 1024 * 1024) { 
-        $size = round((($s / 1024.0) / 1024) / 1024, 1); 
+    else if($s < long(1024L * 1024L * 1024L * 1024L)) { 
+        $size = long(round((($s / 1024.0) / 1024) / 1024, 1)); 
         $size .= "GB";
     }
 
@@ -50,11 +55,15 @@ set BEACON_OUTPUT_LS {
     local('$totalsize @subl $outls $temp $size $s $ext $dotpos $type $lastmod $name @lines @ls');
     this('$once');
 
+    if(strlen($2) > $MAX_OUTPUT_SIZE_TO_COLORIZE) {
+        return $2;
+    }
+
     @lines = split("\n", ["$2" trim]);
 
     @configuration = @('config', 'conf', 'json', 'yml', 'xml', 'inf', 'properties', 'settings');
     @sensitive = @('ost', 'dmp', 'sqlite', 'sqlite3', 'kdbx', 'kdb', 'dit', 'kirbi', 'ccache', 'kirbis', 'git');
-    @sensitive_files = @('ntds.dit', 'lsass.dmp');
+    @sensitive_files = @('ntds.dit', 'lsass.dmp', 'sam', 'system', 'security');
     @archives = @('rar', 'zip', '7z', 'tar', 'gz', 'bz2', 'iso');
     @exes = @('msi', 'sys', 'exe', 'dll', 'bat', 'sct');
     @docs = @('csv', 'odt', 'dotx', 'dotm', 'docm', 'xlam', 'xll', 'xlm', 'xlsm', 'xltx', 'msg', 'rtf', 'txt', 'pdf', 'docx', 'doc', 'xls', 'xlsx', 'ppt', 'pptx', 'pptm', 'odp', 'ppsm', 'ppa', 'ppam');
@@ -81,7 +90,7 @@ set BEACON_OUTPUT_LS {
     $outls .= " ----       ----    -------------------   ----\n";
 
     @subl = sublist(@lines, 1);
-    $totalsize = 0;
+    $totalsize = 0L;
 
     foreach $temp (@subl) {
         ($type, $s, $lastmod, $name) = split("\t", $temp);
@@ -93,10 +102,11 @@ set BEACON_OUTPUT_LS {
         if($type eq "D") { $type = "dir"; }
         else if($type eq "F") { $type = "fil"; }
 
-        $s = int($s);
+        $s = long($s);
+        println("[filescolor-dbg] file( $name ), size: $s ");
         $totalsize += $s;
-        $size = interpretSize($s);
 
+        $size = interpretSize($s);
         $dotpos = lindexOf($name, '.');
         $ext = "";
         if(($dotpos) ) {
@@ -147,7 +157,7 @@ set BEACON_OUTPUT_LS {
     }
 
     $totalsize = interpretSize($totalsize);
-    $outls .= "\nFiles and dirs count: " . size(@ls) . ", total size of files: $totalsize \n";
+    $outls .= "\nFiles and dirs count: " . size(@ls) . ", total size of files: $totalsize (output len: " . strlen($2) . ")\n";
     return $outls;
 }
 

