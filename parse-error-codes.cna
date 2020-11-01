@@ -5285,6 +5285,11 @@ sub parseBeaconError {
 }
 
 set BEACON_ERROR {
+    if( $2 ismatch '^Unknown command: $') {
+        # Supress Unknown command error when no command was given.
+        return "";
+    }
+
     return parseBeaconError($1, $2, $3);
 }
 
