@@ -32,9 +32,9 @@ Aforementioned methods are heavily flagged these days by EDRs and AVs so we woul
 
 ![FilesColor example](https://raw.githubusercontent.com/mgeeky/cobalt-arsenal/master/img/1.PNG)
 
-- **`Forwarded_Ports.cna`** - Keeps track of configured remote port forwardings on all Beacons and lets kill them easily. 
+- **`Forwarded_Ports.cna`** - Keeps track of configured remote port forwardings on all Beacons and lets kill them easily. Available in `View -> Remote Forwarded Ports`
 
-Using `rportfwd` here and there quickly consumes pool of available local ports from which to forward traffic outbound and keeping track of them manually becomes tedious on a long-haul projects. This script aims to fill that gap by collecting these commands and presenting them in a nice visualization pane (concept & implementation based on previous work of @ramen0x3f [leave_no_trace](https://github.com/ramen0x3f/AggressorScripts/blob/master/leave_no_trace.cna), @001SPARTaN and @r3dqu1nn [logvis.cna](https://github.com/invokethreatguy/AggressorCollection/blob/master/harleyQu1nn/logvis.cna) ).
+   Using `rportfwd` here and there quickly consumes pool of available local ports from which to forward traffic outbound and keeping track of them manually becomes tedious on a long-haul projects. This script aims to fill that gap by collecting these commands and presenting them in a nice visualization pane (concept & implementation based on previous work of @ramen0x3f [leave_no_trace](https://github.com/ramen0x3f/AggressorScripts/blob/master/leave_no_trace.cna), @001SPARTaN and @r3dqu1nn [logvis.cna](https://github.com/invokethreatguy/AggressorCollection/blob/master/harleyQu1nn/logvis.cna) ).
 
 - **`Highlight_Beacons.cna`** - Highlights Beacons for a specified time duration (`$HIGHLIGHT_DURATION`) on Initial check-in event, when exiting (and after Beacon exited) and after each Beacon command's output. Configurable colors and events found in `%HIGHLIGHTS` dictionary. Hint: Specify `output => ""` to disable highlighting new Beacon command outputs.
 
@@ -56,6 +56,15 @@ Using `rportfwd` here and there quickly consumes pool of available local ports f
   [-] could not open C:\gdgsdfgdf\*: 3. Parsed error code:
       3 - ERROR_PATH_NOT_FOUND
   ```
+
+- **`rename-beacon-tabs.cna`** - Script that lets us rename Beacon-related tabs from a default format of: `Beacon <ip>@<pid>` to anything other we like, for instance: `B: <user>@<computer> (<pid>)`. 
+
+   Format deciding how should each Beacon's tab be named, utilising beacon's metadata fields is described in a global variable named $beacon_tab_name_format . That variable may contain any of the following available beacon's metadata keys (CobaltStrike 4.2):
+   
+   `note, charset, internal , alive, session, listener, pid, lastf, computer, host, 
+   is64, id, process, ver, last, os, barch, phint, external, port, build, pbid, arch, 
+   user, _accent`
+
 
 - **`settings.cna`** - Script that offers sample implementation for `saveOptions` and `loadOptions` routines, intended to store & restore settings from an external file.
 

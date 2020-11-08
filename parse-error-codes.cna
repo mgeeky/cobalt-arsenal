@@ -23,11 +23,10 @@ global('@ERRORS_MAP');
 @ERRORS_MAP = @();
 
 sub initErrorsMap {
-
     if ( size(@ERRORS_MAP) > 0 ) {
         return;
     }
-
+#
 # The multidimensional multi-line array initialization syntax:
 # 
 # http://sleep.dashnine.org/manual/datastruct.html#1 : 
@@ -38,9 +37,9 @@ sub initErrorsMap {
 #               @('.', '!', '#', '*')
 #            );
 # ...
-# did not work in my  CobaltStrike 4.1+ so I had to come up with this ugly 
+# did not work in my CobaltStrike 4.1+ so I had to come up with this ugly 
 # push(...)-es workaround instead.
-
+#
     push(@ERRORS_MAP, @(0L, "ERROR_SUCCESS"));
     push(@ERRORS_MAP, @(0x00030200L, "STG_S_CONVERTED"));
     push(@ERRORS_MAP, @(0x00030201L, "STG_S_BLOCK"));

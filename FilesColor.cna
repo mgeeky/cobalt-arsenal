@@ -103,7 +103,6 @@ set BEACON_OUTPUT_LS {
         else if($type eq "F") { $type = "fil"; }
 
         $s = long($s);
-        println("[filescolor-dbg] file( $name ), size: $s ");
         $totalsize += $s;
 
         $size = interpretSize($s);
