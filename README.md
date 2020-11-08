@@ -2,12 +2,12 @@
 
 My published set of Aggressor Scripts for Cobalt Strike 4.0+
 
-- **`BeaconInitialTasks.cna`** - This script lets you configure **commands that should be launched as soon as the Beacon checks-in for the first time**. Both commands and argue settings are available in a dedicated options dialog. Also, a feature to right-click on a Beacon and issue "Run custom command..." was added to allow to run arbitrary commands against multiple beacons. Settings are then save in file specified in a global variable named:
+- **`Beacon_Initial_Tasks.cna`** - This script lets you configure **commands that should be launched as soon as the Beacon checks-in for the first time**. Both commands and argue settings are available in a dedicated options dialog. Also, a feature to right-click on a Beacon and issue "Run custom command..." was added to allow to run arbitrary commands against multiple beacons. Settings are then save in file specified in a global variable named:
      `$beaconInitialTasksSettingsFile`
 
    *How it works?*
 
-   Implementation of beacon_task() functionality to invoke nearly-arbitrary Cobalt Strike commands
+   Implementation of `beacon_task()` functionality to invoke nearly-arbitrary Cobalt Strike commands
    from a passed string, from within your Aggressor scripts:
          ```
          beacon_task($bid, "execute-assembly C:\\tools\\Rubeus.exe hash /password:test");

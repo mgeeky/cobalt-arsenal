@@ -62,7 +62,7 @@
 
 global('%defaults');
 
-$beaconInitialTasksSettingsFile = script_resource('beacon-initial-tasks.conf');
+$beaconInitialTasksSettingsFile = script_resource('Beacon_Initial_Tasks.conf');
 
 %defaults["autorun_command_on_initial_checkin1"] = "";
 %defaults["autorun_command_on_initial_checkin2"] = "";
