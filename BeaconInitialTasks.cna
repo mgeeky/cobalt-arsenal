@@ -1,0 +1,759 @@
+#
+# BeaconInitialTasks.cna
+#
+#
+# This script lets you configure commands that should be launched as soon as the Beacon checks-in for the
+# first time. Both commands and argue settings are available in a dedicated options dialog. Also, a feature
+# to right-click on a Beacon and issue "Run custom command..." was added to allow to run arbitrary commands
+# against multiple beacons.
+#
+# Settings are then save in file specified in a global variable named:
+#      $beaconInitialTasksSettingsFile
+#
+#
+# ------------------------------------------
+# How it works?
+#
+# Implementation of beacon_task() functionality to invoke nearly-arbitrary Cobalt Strike commands
+# from a passed string, from within your Aggressor scripts:
+#
+#       beacon_task($bid, "execute-assembly C:\\tools\\Rubeus.exe hash /password:test");
+#
+#
+# -----------------------------------------
+# Initial Commands design, aka beacon_task():
+# 
+# Beacon initial commands are commands that will be processed/parsed by this script and used to construct
+# a Sleep closure that will evaluate Cobalt Strike expression. For instance, a task stated like so:
+#     beacon_task(\$bid, 'execute-assembly C:\\tools\\Rubeus.exe hash /password:test')
+# 
+# will result in creating following closure:
+#     bexecute_assembly(\$bid, 'C:\\tools\\Rubeus.exe', 'hash /password:test')
+# 
+#
+# -----------------------------------------
+# Limitation
+#
+# The way that closures are generated prevents use of apostrophe (and because I was too lazy to code a workaround
+# for that). Also, the command passed to beacon_task() will be extracted up to the first whitespace-character.
+# Then such an extract is iterated through a dictionary of known Aggressor commands to translate it into Aggressor's
+# function name (execute-assembly => bexecute_assembly) and learn the expected number of parameters the function expects.
+# 
+#
+# -----------------------------------------
+# Caveat
+#
+# Such an implementation is inherently prone to be outdated as when CobaltStrike adds new commands and they won't be reflected
+# in '%functions_map' dictionary defined in parseBeaconCommand(). If a command is specified that won't be found in that dictionary,
+# a fireAlias() invocation closure will be constructed instead. That would let the caller invoke user-defined aliases.
+# 
+#
+# -----------------------------------------
+# PS:
+#   I've been poking around `call("beacons.task", $null, $bid, ...)` with CommandBuilder and not, however didn't get anywhere
+#   so decided to code up this hefty, ugly workaround that is based on a hardcoded dictionary of commands.
+#
+#
+# Author:
+#   Mariusz B. / mgeeky, '20
+#   <mb [at] binary-offensive.com>
+#   (https://github.com/mgeeky)
+#
+
+global('%defaults');
+
+$beaconInitialTasksSettingsFile = script_resource('beacon-initial-tasks.conf');
+
+%defaults["autorun_command_on_initial_checkin1"] = "";
+%defaults["autorun_command_on_initial_checkin2"] = "";
+%defaults["autorun_command_on_initial_checkin3"] = "";
+%defaults["autorun_command_on_initial_checkin4"] = "";
+%defaults["autorun_command_on_initial_checkin5"] = "";
+%defaults["custom_argue_on_initial_checkin1"] = "";
+%defaults["custom_argue_on_initial_checkin2"] = "";
+%defaults["custom_argue_on_initial_checkin3"] = "";
+
+
+
+popup beacon_bottom {
+    item "Run Custom command..." {
+        prompt_text("Cobalt Strike command to issue:", "", lambda({
+            foreach $bid (@ids) {
+                beacon_task($bid, $1);
+            }
+        }, @ids => $1));
+    }
+}
+
+sub extractBeaconCommandArgs {
+    local('$text $pos1 $pos2 @args $tmp');
+    @args = @();
+    $text = [$1 trim];
+
+    $pos1 = 0;
+    while($pos1 < strlen($text)) {
+        if(charAt($text, $pos1) eq '"') {
+            if((($pos1 > 1) && (charAt($text, $pos1 - 1)) ne '\\') || $pos1 == 0) {
+                for($pos2 = $pos1 + 1; $pos2 < strlen($text); $pos2++) {
+                    if(charAt($text, $pos2) eq '"') {
+                        if(($pos2 > 1) && (charAt($text, $pos2 - 1) ne '\\')) {
+                            if ((($pos2) - ($pos1 + 1)) > 0) {
+                                $tmp = [substr($text, $pos1 + 1, $pos2) trim];
+                                $tmp = replace($tmp, "\\\\\"", '"');
+                                push(@args, $tmp);
+                            }
+                            else {
+                                push(@args, "");
+                            }
+                            $pos1 = $pos2;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        else if (charAt($text, $pos1) ne ' ') {
+            $pos2 = indexOf($text, " ", $pos1);
+            if($pos2 !is $null) {
+                push(@args, [substr($text, $pos1, $pos2) trim]);
+                $pos1 = $pos2;
+            }
+            else {
+                push(@args, [substr($text, $pos1) trim]);
+                break;
+            }
+        }
+
+        $pos1 += 1;
+    }
+
+    return @args;
+}
+
+sub parseBeaconCommand {
+    local('%functions_map $a $k $argc $vargs $v @out $cmdline');
+
+    $cmdline = $1;
+
+    # add only non-standard mappings, like argue => bargue_add
+    %functions_map = %(
+        "argue" => @("bargue_add", 3),
+        "blockdlls" => @("bblockdlls", 2),
+        "browserpivot" => @("bbrowserpivot", 3),
+        "browserpivot-stop" => @("bbrowserpivot_stop", 1),
+        "cancel" => @("bcancel", 2),
+        "cd" => @("bcd", 2),
+        "checkin" => @("bcheckin", 1),
+        "clear" => @("bclear", 1),
+        "connect" => @("bconnect", 2),
+        "covertvpn" => @("bcovertvpn", 4),
+        "cp" => @("bcp", 3),
+        "dcsync" => @("bdcsync", 3),
+        "desktop" => @("bdesktop", 1),
+        "dllinject" => @("bdllinject", 3),
+        "dllload" => @("bdllload", 3),
+        "dllspawn" => @("bdllspawn", 6),
+        "download" => @("bdownload", 2),
+        "drives" => @("bdrives", 1),
+        "elevate" => @("belevate", 3),
+        "error" => @("berror", 2),
+        "execute" => @("bexecute", 2),
+        "execute-assembly" => @("bexecute_assembly", 3),
+        "exit" => @("bexit", 1),
+        "getprivs" => @("bgetprivs", 1),
+        "getsystem" => @("bgetsystem", 1),
+        "getuid" => @("bgetuid", 1),
+        "hashdump" => @("bhashdump", 1),
+        "inject" => @("binject", 4),
+        "injectsh" => @("binjectsh", 4),
+        "inline-execute" => @("binline_execute", 3),
+        "input" => @("binput", 2),
+        "jobkill" => @("bjobkill", 2),
+        "jobs" => @("bjobs", 1),
+        "jump" => @("bjump", 4),
+        "kerberos_ccache_use" => @("bkerberos_ccache_use", 2),
+        "kerberos_ticket_purge" => @("bkerberos_ticket_purge", 1),
+        "kerberos_ticket_use" => @("bkerberos_ticket_use", 2),
+        "keylogger" => @("bkeylogger", 3),
+        "kill" => @("bkill", 2),
+        "link" => @("blink", 2),
+        "log" => @("blog", 2),
+        "log2" => @("blog2", 2),
+        "make_token" => @("bloginuser", 4),
+        "logonpasswords" => @("blogonpasswords", 2),
+        "ls" => @("bls", 2),
+        "mimikatz" => @("bmimikatz", 2),
+        "mimikatz-small" => @("bmimikatz_small", 2),
+        "mkdir" => @("bmkdir", 2),
+        "mode" => @("bmode", 2),
+        "mv" => @("bmv", 3),
+        "net" => @("bnet", 2),
+        "note" => @("bnote", 2),
+        "passthehash" => @("bpassthehash", 4),
+        "pause" => @("bpause", 2),
+        "portscan" => @("bportscan", 5),
+        "powerpick" => @("bpowerpick", 3),
+        "powershell" => @("bpowershell", 3),
+        "powershell-import" => @("bpowershell_import", 2),
+        "powershell-clear" => @("bpowershell_import_clear", 1),
+        "ppid" => @("bppid", 2),
+        "ps" => @("bps", 1),
+        "psexec" => @("bpsexec", 5),
+        "psinject" => @("bpsinject", 4),
+        "pwd" => @("bpwd", 1),
+        "reg query" => @("breg_query", 3),
+        "reg queryv" => @("breg_queryv", 4),
+        "remote-exec" => @("bremote_exec", 4),
+        "rev2self" => @("brev2self", 1),
+        "rm" => @("brm", 2),
+        "rportfwd" => @("brportfwd", 4),
+        "rportfwd_local" => @("brportfwd_local", 4),
+        "rportfwd_stop" => @("brportfwd_stop", 2),
+        "run" => @("brun", 2),
+        "runas" => @("brunas", 5),
+        "runasadmin" => @("brunasadmin", 2),
+        "runu" => @("brunu", 3),
+        "screenshot" => @("bscreenshot", 1),
+        "screenwatch" => @("bscreenwatch", 1),
+        "setenv" => @("bsetenv", 3),
+        "shell" => @("bshell", 2),
+        "shinject" => @("bshinject", 4),
+        "shspawn" => @("bshspawn", 3),
+        "sleep" => @("bsleep", 3),
+        "socks" => @("bsocks", 2),
+        "socks stop" => @("bsocks_stop", 1),
+        "spawn" => @("bspawn", 3),
+        "spawnas" => @("bspawnas", 5),
+        "spawnto" => @("bspawnto", 3),
+        "spawnu" => @("bspawnu", 3),
+        "spunnel" => @("bspunnel", 4),
+        "spunnel_local" => @("bspunnel_local", 4),
+        "ssh" => @("bssh", 5),
+        "ssh-key" => @("bssh_key", 5),
+        "steal_token" => @("bsteal_token", 2),
+        "sudo" => @("bsudo", 3),
+        "task" => @("btask", 3),
+        "timestomp" => @("btimestomp", 3),
+        "unlink" => @("bunlink", 3),
+        "upload" => @("bupload", 2),
+
+        # Command was not found among built-in ones, probably user refers to user-defined alias.
+        "*" => @("fireAlias", 3),
+    );
+
+    foreach $k => $vargs (%functions_map) {
+        $k = replace($k, '"', '');
+        $v = replace($vargs[0], '"', '');
+        $argc = $vargs[1];
+        $a = [left($cmdline, strlen($k)) trim];
+
+        if ($a eq $k) {
+            @args = @();
+
+            if(strlen($cmdline) > (strlen($k) + 1)) {
+                @args = extractBeaconCommandArgs(substr($cmdline, strlen($k) + 1));
+            }
+
+            return @($k, $v, $argc, @args);
+        }
+    }
+
+    $n = indexOf($cmdline, ' ');
+    
+    if($n !is $null) {
+        $k = substr($cmdline, 0, $n);
+    }
+    else {
+        $k = $cmdline;
+    }
+
+    $v = 'fireAlias,' . $k;
+    @args = extractBeaconCommandArgs(substr($cmdline, strlen($k)));
+    $n = 3;
+
+    return @($k, $v, $argc, @args);
+}
+
+sub constructClosure {
+    local('$func $argc $closure @args @nargs @xargs $n $tmp $i');
+
+    # The dynamic closure construction idea & implementation parts were borrowed from
+    # https://github.com/dcsync/pycobalt/blob/master/aggressor/pycobalt.cna
+
+    $func = $1;
+    $argc = $2;
+    @args = $3;
+    @nargs = @();
+    $n = $argc;
+    if(left($func, strlen('fireAlias,')) eq "fireAlias,") {
+        $tmp = join(' ', @args);
+        $tmp = replace($tmp, "\\\\", '^.^.^');
+        $tmp = replace($tmp, '\^\.\^\.\^', "\\\\\\\\");
+        #$tmp = replace($tmp, '"', "\\\\\"");
+
+        $closure = 'fireAlias($1, "' . split(',', $func)[1] . '", ';
+        $closure .= "'" . $tmp . "')";
+
+        return $closure;
+    }
+
+    if ($n > size(@args)) {
+        $n = size(@args);
+    }
+
+    for($i = 0; $i < $n; $i++) {
+        push(@nargs, "'" . @args[$i] . "'");
+    }
+
+    if(size(@args) > size(@nargs)) {
+        $n = 0;
+        $tmp = @nargs[size(@nargs) - 1];
+        if(right($tmp, 1) eq "'") {
+            $tmp = substr($tmp, 0, strlen($tmp) - 1);
+            $n = 1;
+        }
+
+        $tmp .= ' ' . join(' ', sublist(@args, size(@nargs)));
+        @nargs[size(@nargs) - 1] = $tmp;
+
+        if ($n == 1) {
+            @nargs[size(@nargs) - 1] .= "'";
+        }
+    }
+
+    # Replacing backslashes in strings to double-backslashes
+    for($i = 0; $i < size(@nargs); $i++) {
+        @nargs[$i] = replace(@nargs[$i], "\\\\", '^.^.^');
+        @nargs[$i] = replace(@nargs[$i], '\^\.\^\.\^', "\\\\\\\\");
+        #@nargs[$i] = replace(@nargs[$i], '"', "\\\\\"");
+    }
+
+    $closure = '';
+    $closure .= $func . '($1, ';
+    $closure .= join(', ', @nargs);
+    $closure .= ')';
+
+    return $closure;
+}
+
+
+#
+# Usage:
+#   beacon_task($bid, $command);
+#
+
+sub beacon_task {
+    local('$bid $func $cmdline $argc $closure $closure_text $cmd @args');
+
+    $bid = $1;
+    $cmdline = $2;
+
+    if(indexOf($cmdline, "'") !is $null) {
+        berror($1, "Warning: beacon_task argument contains apostrophe (') that will break dynamically constructed closure! The expected beacon command probably won't run.");
+    }
+
+    ($cmd, $func, $argc, @args) = parseBeaconCommand($cmdline);
+
+    println("[beacon_task debug]beacon_task(' $+ $cmdline $+ '): parsed cmd=\" $+ $cmd $+ \", func=\" $+ $func $+ \", args = " . @args);
+
+    $closure_text = constructClosure($func, $argc - 1, @args);
+    println("[beacon_task debug]Prepared closure for beacon_task:\n\t" . $closure_text);
+
+    try
+    {
+        $closure = compile_closure($closure_text);
+
+        if ($closure !is $null) {
+            binput($1, $cmd . " " . join(' ', @args));
+            invoke($closure, @($bid), $cmd);
+        }
+        else {
+            #println("[beacon_task debug]Could not compile closure (returned null).");
+        }
+    }
+    catch $message
+    {
+        berror($1, "Could not compile closure for beacon_task (look in Script Console for more details): $message");        
+    }
+}
+
+
+
+#
+# ============================================================================
+#
+
+
+menubar("Initial Tasks", "initialTasks");
+
+popup initialTasks {
+    item "Configure initial tasks" {
+        beaconInitialActionsSetup();
+    }
+}
+
+sub beaconInitialActionsSetup {
+    local('$dialog');
+
+    $dialog = dialog("Beacon initial check-in actions [brought to you by github.com/mgeeky]", %defaults, &saveBeaconInitialActions);
+
+    dialog_description($dialog, "Configure what should happen when a Beacon checks-in for the first time. Its beacon-initial-checkin handler may do some automated actions to fill results at startup. All of these actions are governed by superior setting \"Enable automated actions when Beacon checks-in for the first time\" configurable in main BeaconInitialTasks settings.");
+    
+    drow_checkbox($dialog, "beacon_initial_actions", "Enable automated actions when Beacon checks-in for the first time (this script): ", "Enable");
+
+    drow_text($dialog, "autorun_command_on_initial_checkin1", "Run this Cobalt command when Beacon checks-in first time (1):");
+    drow_text($dialog, "autorun_command_on_initial_checkin2", "Run this Cobalt command when Beacon checks-in first time (2):");
+    drow_text($dialog, "autorun_command_on_initial_checkin3", "Run this Cobalt command when Beacon checks-in first time (3):");
+    drow_text($dialog, "autorun_command_on_initial_checkin4", "Run this Cobalt command when Beacon checks-in first time (4):");
+    drow_text($dialog, "autorun_command_on_initial_checkin5", "Run this Cobalt command when Beacon checks-in first time (5):");
+
+    drow_text($dialog, "custom_argue_on_initial_checkin1", "Issue this argue command when Beacon checks-in first time (1):");
+    drow_text($dialog, "custom_argue_on_initial_checkin2", "Issue this argue command when Beacon checks-in first time (2):");
+    drow_text($dialog, "custom_argue_on_initial_checkin3", "Issue this argue command when Beacon checks-in first time (3):");
+
+    dbutton_action($dialog, "Update");
+    dbutton_action($dialog, "Help");
+    dialog_show($dialog);
+}
+
+sub saveBeaconInitialActions {
+    local('%options $err @params');
+    %options = $3;
+
+    if($2 eq "Help") {
+        $err = "";
+
+        $err .= "\n\nInitial Commands design, aka beacon_task():\n";
+        $err .= "Beacon initial commands are commands that will be processed/parsed by this script and used to construct\n";
+        $err .= "a Sleep closure that will evaluate Cobalt Strike expression. For instance, a task stated like so:\n";
+        $err .= "\t beacon_task(\$bid, 'execute-assembly C:\\tools\\Rubeus.exe hash /password:test')\n";
+        $err .= "\nwill result in creating following closure:\n";
+        $err .= "\t bexecute_assembly(\$bid, 'C:\\tools\\Rubeus.exe', 'hash /password:test')\n";
+        $err .= "\nThe way that closures are generated prevents use of apostrophe (and because I was too lazy to code a workaround\n";
+        $err .= "for that). Also, the command passed to beacon_task() will be extracted up to the first whitespace-character.\n";
+        $err .= "Then such an extract is iterated through a dictionary of known Aggressor commands to translate it into Aggressor's\n";
+        $err .= "function name (execute-assembly => bexecute_assembly) and learn the expected number of parameters the function expects.\n";
+        $err .= "\nSuch an implementation is inherently prone to be outdated as when CobaltStrike adds new commands and they won't be reflected\n";
+        $err .= "in '%functions_map' dictionary defined in parseBeaconCommand(). If a command is specified that won't be found in that dictionary,\n";
+        $err .= "a fireAlias() invocation closure will be constructed instead. That would let the caller invoke user-defined aliases.\n";
+        $err .= "\n";
+
+        show_message($err);
+
+        return;
+    }
+
+    %defaults["beacon_initial_actions"] = %options["beacon_initial_actions"];
+
+    %defaults["autorun_command_on_initial_checkin1"] = %options["autorun_command_on_initial_checkin1"];
+    %defaults["autorun_command_on_initial_checkin2"] = %options["autorun_command_on_initial_checkin2"];
+    %defaults["autorun_command_on_initial_checkin3"] = %options["autorun_command_on_initial_checkin3"];
+    %defaults["autorun_command_on_initial_checkin4"] = %options["autorun_command_on_initial_checkin4"];
+    %defaults["autorun_command_on_initial_checkin5"] = %options["autorun_command_on_initial_checkin5"];
+
+    %defaults["custom_argue_on_initial_checkin1"] = %options["custom_argue_on_initial_checkin1"];
+    %defaults["custom_argue_on_initial_checkin2"] = %options["custom_argue_on_initial_checkin2"];
+    %defaults["custom_argue_on_initial_checkin3"] = %options["custom_argue_on_initial_checkin3"];
+
+    @params = @(
+        'autorun_command_on_initial_checkin1',
+        'autorun_command_on_initial_checkin2',
+        'autorun_command_on_initial_checkin3',
+        'autorun_command_on_initial_checkin4',
+        'autorun_command_on_initial_checkin5',
+        'custom_argue_on_initial_checkin1',
+        'custom_argue_on_initial_checkin2',
+        'custom_argue_on_initial_checkin3',
+    );
+
+    $err = "";
+
+    foreach $p (@params) {
+        if(%defaults[$p] is $null || strlen(%defaults[$p]) == 0) {
+            continue;
+        }
+
+        if(indexOf($cmdline, "'") !is $null) {
+            $err .= "\n\n $p $+ : Specified command cannot contain apostrophe (') as it breaks arguments parser. Please modify your command.\n";
+        }
+    }
+
+    if(strlen($err) > 0) {
+        show_error($err);
+        return;
+    }
+
+    putOptions();
+    show_message("Options saved.");
+}
+
+
+#
+# ==============================================================================================
+#
+
+#
+# saveOptions(
+#   $filename, 
+#   %dictWithOptions, 
+#   [optional]"save.these.options.with.prefix.in.name")
+#
+sub saveOptions {
+    local('$handle $i $newl $updated $append @output @contents $optionsPrefix $fileName %options $p $k $key $val %fetchedOptions');
+    $fileName = $1;
+    %options = $2;
+    $optionsPrefix = $3;
+
+    @output = @();
+    @contents = @();
+
+    if(-exists $fileName) {
+        if(!-canread $fileName) {
+            show_error("Cannot read settings file: $fileName");
+            return;
+        }
+
+        $handle = openf($fileName);
+        if($handle) {
+            while $line (readln($handle)) {
+                $line = ["$line" trim];
+                push(@contents, $line);
+            }
+            closef($handle);
+        }
+    }
+
+    $handle = openf(">" . $fileName);
+    if($handle is $null) {
+        show_error("Could not save options: Unable to open/create file.");
+        return;
+    }
+
+    if(size(@contents) > 0) {
+        for($i = 0; $i < size(@contents); $i++) {
+            if(strlen(@contents[$i]) < 2) {
+                push(@output, @contents[$i]);
+                continue;
+            }
+            else if('#*' iswm @contents[$i]) {
+                push(@output, @contents[$i]);
+                continue;
+            }
+
+            $updated = 0;
+            if(@contents[$i] ismatch '([^=]+)\s*=\s*(.+)') {
+                ($key, $oldval) = matched();
+                $key = ["$key" trim];
+                $oldval = ["$oldval" trim];
+
+                foreach $key2 (keys(%options)) {
+                    $k = $optionsPrefix . $key2;
+
+                    if($key eq $k) {
+                        $val = %options[$key2];
+                        $val = ["$val" trim];
+
+                        $newl = substr(@contents[$i], 0, indexOf(@contents[$i], $oldval));
+
+                        if(strlen($val) == 0) {
+                            $newl .= "\"\"";
+                        }
+                        else if(indexOf($val, ' ')) {
+                            $newl .= "\" $+ $val $+ \"";
+                        }
+                        else {
+                            $newl .= $val;
+                        }
+
+                        push(@output, $newl);
+
+                        $updated = 1;
+                    }
+                }
+            }
+
+            if($updated == 0) {
+                push(@output, @contents[$i]);
+            }
+        }
+    }
+    else {
+        foreach $key (keys(%options)) {
+            $k = $optionsPrefix . $key;
+            $val = %options[$key];
+            $val = ["$val" trim];
+
+            if(strlen($val) == 0) {
+                push(@output, "$k = \"\"");
+            }
+            else if(indexOf($val, ' ')) {
+                push(@output, "$k = \" $+ $val $+ \"");
+            }
+            else {
+                push(@output, "$k = $val");
+            }
+        }
+    }
+
+    printAll($handle, @output);
+    closef($handle);
+}
+
+#
+# %fetchedOptionsDict = loadOptions($filename, [optional]"load.only.options.with.prefix.in.name")
+#
+sub loadOptions {
+    local('$handle @lines $fileName $p $key $loadPrefix $val %fetchedOptions');
+    $fileName = $1;
+    $loadPrefix = $2;
+    %fetchedOptions = %();
+
+    if(!-exists $fileName) {
+        show_error("No saved settings file ( $+ $fileName $+ )!");
+        return $null;
+    }
+
+    if(!-canread $fileName) {
+        show_error("Cannot read settings file: $fileName");
+        return $null;
+    }
+
+    $handle = openf($fileName);
+    while $line (readln($handle)) {
+        push(@lines, ["$line" trim]);
+    }
+
+    closef($handle);
+ 
+    for($lineNum = 0; $lineNum < size(@lines); $lineNum++) {
+        $line = @lines[$lineNum];
+
+        if(strlen($line) <= 2) {
+            continue;
+        }
+        else if('#*' iswm $line) {
+            continue;
+        }
+
+        $p = indexOf($line, '=');
+        if ($p) {
+
+            $key = substr($line, 0, $p);
+            $key = ["$key" trim];
+
+            $val = substr($line, $p + 1);
+            $val = ["$val" trim];
+
+            if(strlen($key) == 0) {
+                show_error("Error in config file ( $+ $fileName $+ ) in line $lineNum $+ :\nLine does not conform 'key = value' form, as there is no key:\n\n $line");
+                return $null;
+            }
+
+            if(right($val, 1) eq ";") {
+                $val = substr($val, 0, -1);
+            }
+
+            if(left($val, 1) eq '"') {
+                if(right($val, 1) eq '"') {
+                    $val = substr($val, 1, -1);
+                }
+                else {
+                    show_error("Error in config file ( $+ $fileName $+ ) in line $lineNum $+ :\nUnclosed quote mark on line:\n\n $line");
+                    return $null;
+                }
+            }
+
+            if($loadPrefix && strlen($loadPrefix) > 0) {
+                if(indexOf($key, $loadPrefix) != 0) {
+                    continue;
+                }
+            }
+
+            if($key && strlen($key) > 0) {
+                %fetchedOptions[$key] = $val;
+            }
+            else {
+                %fetchedOptions[$key] = "";
+            }
+        }
+        else {
+            show_error("Error in config file ( $+ $fileName $+ ) in line $lineNum $+ :\nNo 'key = value' assignment in line:\n\n $line");
+            return $null;
+        }
+    }
+
+    return %fetchedOptions;
+}
+
+#
+# ==============================================================================================
+#
+
+sub getOptions {
+    local('%opts $pos %beacons');
+
+    %opts = loadOptions($beaconInitialTasksSettingsFile);
+    if(size(keys(%opts)) > 0) {
+        $pos = strlen("initialtasks.defaults.");
+        foreach $key (keys(%opts)) {
+            if("initialtasks.defaults.*" iswm $key) {
+                $k = substr($key, $pos);
+                %defaults[$k] = %opts[$key];
+            }
+        }
+    }
+
+    $handle = openf($beaconsCacheFile);
+    if($handle !is $null) {
+        %beacons = %();
+        %beacons = readObject($handle);
+        closef($handle);
+
+        if(%beacons !is $null) {
+            if(size(%beacons) > size(%OPERATING_BEACONS)) {
+                %OPERATING_BEACONS = copy(%beacons);
+            }
+        }
+    }
+}
+
+sub putOptions {
+    saveOptions($beaconInitialTasksSettingsFile, %defaults, "initialtasks.defaults.");
+}
+
+
+on beacon_initial {
+
+    if(%defaults["beacon_initial_actions"] eq "true") {  
+        if(%defaults["autorun_command_on_initial_checkin1"] !is $null && strlen(%defaults["autorun_command_on_initial_checkin1"]) > 0) {
+            beacon_task($1, %defaults["autorun_command_on_initial_checkin1"]);
+        }
+        if(%defaults["autorun_command_on_initial_checkin2"] !is $null && strlen(%defaults["autorun_command_on_initial_checkin2"]) > 0) {
+            beacon_task($1, %defaults["autorun_command_on_initial_checkin2"]);
+        }
+        if(%defaults["autorun_command_on_initial_checkin3"] !is $null && strlen(%defaults["autorun_command_on_initial_checkin3"]) > 0) {
+            beacon_task($1, %defaults["autorun_command_on_initial_checkin3"]);
+        }
+        if(%defaults["autorun_command_on_initial_checkin4"] !is $null && strlen(%defaults["autorun_command_on_initial_checkin4"]) > 0) {
+            beacon_task($1, %defaults["autorun_command_on_initial_checkin4"]);
+        }
+        if(%defaults["autorun_command_on_initial_checkin5"] !is $null && strlen(%defaults["autorun_command_on_initial_checkin5"]) > 0) {
+            beacon_task($1, %defaults["autorun_command_on_initial_checkin5"]);
+        }
+
+        if(%defaults["custom_argue_on_initial_checkin1"] !is $null && strlen(%defaults["custom_argue_on_initial_checkin1"]) > 0) {
+            beacon_task($1, "argue " . %defaults["custom_argue_on_initial_checkin1"]);
+        }
+        if(%defaults["custom_argue_on_initial_checkin2"] !is $null && strlen(%defaults["custom_argue_on_initial_checkin2"]) > 0) {
+            beacon_task($1, "argue " . %defaults["custom_argue_on_initial_checkin2"]);
+        }
+        if(%defaults["custom_argue_on_initial_checkin3"] !is $null && strlen(%defaults["custom_argue_on_initial_checkin3"]) > 0) {
+            beacon_task($1, "argue " . %defaults["custom_argue_on_initial_checkin3"]);
+        }
+    }
+}
+
+getOptions();
+
+beacon_task('78440612', 'whoami');
+beacon_task('78440612', 'execute-assembly "v:\\vmshared\\__RED_TEAM_TOOLS\\_0_compiled_binaries\\Rubeus.exe" hash /password:test');

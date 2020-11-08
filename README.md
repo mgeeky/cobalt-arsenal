@@ -2,6 +2,17 @@
 
 My published set of Aggressor Scripts for Cobalt Strike 4.0+
 
+- **`BeaconInitialTasks.cna`** - This script lets you configure **commands that should be launched as soon as the Beacon checks-in for the first time**. Both commands and argue settings are available in a dedicated options dialog. Also, a feature to right-click on a Beacon and issue "Run custom command..." was added to allow to run arbitrary commands against multiple beacons. Settings are then save in file specified in a global variable named:
+     `$beaconInitialTasksSettingsFile`
+
+   *How it works?*
+
+   Implementation of beacon_task() functionality to invoke nearly-arbitrary Cobalt Strike commands
+   from a passed string, from within your Aggressor scripts:
+         ```
+         beacon_task($bid, "execute-assembly C:\\tools\\Rubeus.exe hash /password:test");
+         ```
+
 - **`better-upload.cna`** - Simple yet **super handy** script that overrides built-in `upload` command by having one that offers additional, second parameter - being _remote file path_. By default we're only able to upload file to the CWD. This implementation let's us upload wherever we like:
 
 ```
@@ -60,7 +71,7 @@ Aforementioned methods are heavily flagged these days by EDRs and AVs so we woul
 - **`rename-beacon-tabs.cna`** - Script that lets us rename Beacon-related tabs from a default format of: `Beacon <ip>@<pid>` to anything other we like, for instance: `B: <user>@<computer> (<pid>)`. 
 
    Format deciding how should each Beacon's tab be named, utilising beacon's metadata fields is described in a global variable named $beacon_tab_name_format . That variable may contain any of the following available beacon's metadata keys (CobaltStrike 4.2):
-   
+
    `note, charset, internal , alive, session, listener, pid, lastf, computer, host, 
    is64, id, process, ver, last, os, barch, phint, external, port, build, pbid, arch, 
    user, _accent`
