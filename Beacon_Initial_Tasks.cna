@@ -248,6 +248,10 @@ sub parseBeaconCommand {
         $a = [left($cmdline, strlen($k)) trim];
 
         if ($a eq $k) {
+            if((strlen($cmdline) > strlen($k) + 1) && left($cmdline, strlen($k) + 1) ne $k . " ") {
+                continue;
+            }
+
             @args = @();
 
             if(strlen($cmdline) > (strlen($k) + 1)) {
