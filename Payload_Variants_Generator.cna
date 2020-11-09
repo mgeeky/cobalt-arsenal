@@ -39,7 +39,7 @@ sub generate
         write_payload($outpath, %_options["listener"] . "-svc-x64.exe", artifact_payload(%_options["listener"], "svcexe", "x64"));
 
         prompt_text("Payload variants generated to:", $outpath, {});
-        add_to_clipboard($outpath);
+        #add_to_clipboard($outpath);
     }, %_options => %options));
 }
 
