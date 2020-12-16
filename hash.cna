@@ -1,0 +1,41 @@
+#
+# This script shows how to compute hash value in Aggressor Script.
+#
+# Supported algorithms:
+#   - MD5
+#   - SHA-1
+#   - SHA-256
+#
+# Mariusz B. / mgeeky, '20
+# <mb [at] binary-offensive . com
+#
+
+# Usage: hashfile("algo", "filepath")
+sub hashfile {
+    local('$f $filepath $algo $d $digest $hash');
+    $algo = $1;
+    $filepath = $2;
+
+    $f = openf($filepath);
+    $d = readb($f, -1);
+    closef($f);
+
+    $md = [java.security.MessageDigest getInstance: $algo];
+    $digest = [$md digest: $d];
+
+    $hash = [javax.xml.bind.DatatypeConverter printHexBinary: $digest];
+    return lc($hash);
+}
+
+# Usage: hashfile("algo", "string")
+sub hashstring {
+    local('$f $string $algo $d $digest $hash');
+    $algo = $1;
+    $string = [$2 getBytes: "UTF-8"];
+
+    $md = [java.security.MessageDigest getInstance: $algo];
+    $digest = [$md digest: $string];
+
+    $hash = [javax.xml.bind.DatatypeConverter printHexBinary: $digest];
+    return lc($hash);
+}

@@ -13,11 +13,11 @@ My published set of Aggressor Scripts for Cobalt Strike 4.0+
          beacon_task($bid, "execute-assembly C:\\tools\\Rubeus.exe hash /password:test");
          ```
 
-- **`better-upload.cna`** - Simple yet **super handy** script that overrides built-in `upload` command by having one that offers additional, second parameter - being _remote file path_. By default we're only able to upload file to the CWD. This implementation let's us upload wherever we like:
+- **`better-upload.cna`** - Simple yet **super handy** script that overrides built-in `upload` command by having one that offers additional, second parameter - being _remote file path_. By default we're only able to upload file to the CWD. This implementation let's us upload wherever we like. Additionally, it computes and prints out the MD5 checksum of every uploaded file for facilitating IOCs tracing:
 
 ```
 beacon> upload implant.exe \\DC1\c$\windows\temp\implant.exe
-[*] Tasked Beacon to upload file (size: 929.25KB) from: (implant.exe) to: (\\DC1\c$\windows\temp\implant.exe)
+[*] Tasked Beacon to upload file (size: 929.25KB, md5: 6465bb8a4af8dd2d93f8f386a16be341) from: (implant.exe) to: (\\DC1\c$\windows\temp\implant.exe)
 [+] host called home, sent: 951655 bytes
 
 ```
@@ -46,6 +46,8 @@ Aforementioned methods are heavily flagged these days by EDRs and AVs so we woul
 - **`Forwarded_Ports.cna`** - Keeps track of configured remote port forwardings on all Beacons and lets kill them easily. Available in `View -> Remote Forwarded Ports`
 
    Using `rportfwd` here and there quickly consumes pool of available local ports from which to forward traffic outbound and keeping track of them manually becomes tedious on a long-haul projects. This script aims to fill that gap by collecting these commands and presenting them in a nice visualization pane (concept & implementation based on previous work of @ramen0x3f [leave_no_trace](https://github.com/ramen0x3f/AggressorScripts/blob/master/leave_no_trace.cna), @001SPARTaN and @r3dqu1nn [logvis.cna](https://github.com/invokethreatguy/AggressorCollection/blob/master/harleyQu1nn/logvis.cna) ).
+
+- **`hash.cna`** - Implementation of MD5/SHA1/SHA256 hashing routines in aggressor script.
 
 - **`Highlight_Beacons.cna`** - Highlights Beacons for a specified time duration (`$HIGHLIGHT_DURATION`) on Initial check-in event, when exiting (and after Beacon exited) and after each Beacon command's output. Configurable colors and events found in `%HIGHLIGHTS` dictionary. Hint: Specify `output => ""` to disable highlighting new Beacon command outputs.
 
