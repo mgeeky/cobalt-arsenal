@@ -93,7 +93,7 @@ alias upload {
     $md = [java.security.MessageDigest getInstance: $algo];
     $digest = [$md digest: $content];
 
-    $hash = [javax.xml.bind.DatatypeConverter printHexBinary: $digest];
+    $hash = transform($digest, "hex");
     $hash = lc($hash);
 
     btask($1, "Tasked Beacon to upload file (size: " . interpretSize(strlen($content)) . ", md5: " . $hash . ") from: ( $+ $localpath $+ ) to: ( $+ $remotepath $+ )");
