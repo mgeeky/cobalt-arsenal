@@ -758,6 +758,3 @@ on beacon_initial {
 }
 
 getOptions();
-
-beacon_task('78440612', 'whoami');
-beacon_task('78440612', 'execute-assembly "v:\\vmshared\\__RED_TEAM_TOOLS\\_0_compiled_binaries\\Rubeus.exe" hash /password:test');
