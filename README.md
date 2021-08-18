@@ -53,6 +53,18 @@ Aforementioned methods are heavily flagged these days by EDRs and AVs so we woul
 
 - **`httprequest.cna`** - Safe & sound HTTP request implementation for Cobalt Strike 4.0 Aggressor Script. Works with HTTP & HTTPS, GET/POST/etc. + redirections. Rationale: I've tested various implementations of HTTP request sending subroutines written in Sleep for CS, but none of them matched by needs - working support for GET/POST, redirections handling and exceptions-safe execution. So I came up with my own implementation. ([gist](https://gist.github.com/mgeeky/2d7f8c2a6ffbfd23301e1e2de0312087)) 
 
+- **`mgeekys_arsenal.cna`** - 3300+ kLOC stuffed with Cobalt Strike goodies, improvements, enhancements and aliases making workflow with Cobalt way much easier and nicer! This script combines most of the utilities placed in this repository:
+  - Current working directory on status bar
+  - Beacon initial actions
+  - Better upload
+  - handy aliases around most commonly used tools
+  - super handy `execute-assembly` not requiring full path to the executable
+  - auto Parent PID spoofing logic
+  - and plenty more toys worth checking out!
+
+  ![Arsenal window](https://raw.githubusercontent.com/mgeeky/cobalt-arsenal/master/mgeekys_arsenal/img/arsenal1.png)
+
+
 - **`Payload_Variants_Generator.cna`** - This script generates stageless payload variants per each available architecture and output format type. Compatible with Cobalt Strike 4.0+.
 
 - **`parse-error-codes.cna`** - A handy script that parses reported error codes and prints their corresponding Windows related meaning directly in Beacon's console output.
