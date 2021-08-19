@@ -2485,8 +2485,8 @@ sub arsenal::renameBeaconTab {
     for ( $i = 0; $i < [$apptabs size] ; $i++) {
         $applicationTab = [$apptabs get: $i];
 
-        if ([$applicationTab bid] eq $bid) {
-            $currtabname = [[[$applicationTab label] getText] trim];
+        if ([$applicationTab A] eq $bid) {
+            $currtabname = [[[$applicationTab B] getText] trim];
 
             if ($currtabname eq $srctabname) {
                 $dsttabname = %arsenal::defaults["beacon_tab_name_format"];
