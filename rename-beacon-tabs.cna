@@ -43,6 +43,18 @@ sub renameBeaconTabs {
     }
 }
 
+
+#
+# CobaltStrike 4.4 changed ApplicationTab's class definition.:
+#
+#    cobaltstrike.jar:aggressor.TabManager.class:
+#       - title => - E
+#       - component => - C
+#       - removeListener => - D
+#       - label => - B
+#       - bid => - A
+#
+
 sub renameBeaconTab {
     local('$client $srctabname $i $dsttabname $apptabs $applicationTab');
 
