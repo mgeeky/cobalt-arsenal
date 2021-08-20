@@ -26,6 +26,7 @@ UI embellishes, parsing of Beacon-events data (tasked, output, input, etc), powe
 - adds command `powershell-clear` for clearing the imported PowerShell script from a Beacon session
 - adds command `syncall` to sync all downloaded files on demand
 - adds command `whoami` for running `run whoami /user /fo list`
+- adds command `assembly` as an alias for `execute-assembly`
 - enhances `cd` command to make it restore previous path if `cd -` was issued
 - enhances `rm` command to support multiple files/directories removal at once
 
