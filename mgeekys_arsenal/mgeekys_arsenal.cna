@@ -2533,7 +2533,7 @@ sub arsenal::renameBeaconTab {
 
                 arsenal::debug("Renaming tab from \" $+ $srctabname $+ \" to \" $+ $dsttabname $+ \"");
                 #setField($applicationTab, title => $dsttabname);
-                [[$applicationTab label] setText: $dsttabname . "   "];
+                [[$applicationTab B] setText: $dsttabname . "   "];
             } 
         }
     }

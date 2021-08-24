@@ -90,8 +90,8 @@ sub renameBeaconTab {
                 # applicationTab var, the beacon tab's title gets reverted to its previous
                 # value, completely ignoring followed setText(). No clue what's going on, so we
                 # better avoid the setField call.
-                #setField($applicationTab, title => $dsttabname);
-                [[$applicationTab label] setText: $dsttabname . "   "];
+                #setField($applicationTab, E => $dsttabname);
+                [[$applicationTab B] setText: $dsttabname . "   "];
             } 
         }
     }
