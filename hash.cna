@@ -23,7 +23,7 @@ sub hashfile {
     $md = [java.security.MessageDigest getInstance: $algo];
     $digest = [$md digest: $d];
 
-    $hash = [javax.xml.bind.DatatypeConverter printHexBinary: $digest];
+    $hash = transform($digest, "hex");
     return lc($hash);
 }
 
