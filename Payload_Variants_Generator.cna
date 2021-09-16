@@ -90,7 +90,7 @@ sub generate_shellcode
 
         $pay1 = "";
         $pay2 = "";
-        $name = %_options["listener"];
+        $name = %_options["listener"] . "-" . %_options["exit_method"];
 
         if(%_options["local"] eq "true") {
             if(strlen(%_options["bid"]) == 0) {
