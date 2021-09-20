@@ -110,6 +110,53 @@ Future post-ex jobs will be spawned with fake PPID set to:
 
 - **`stomp-dll-info.py`** - A script that list DLL files properties for purpose of finding good Module Stomping candidates. The results of this script can then be used in Cobalt Strike Malleable C2 Profiles and for the sake of other shellcode process-injection tests. Especially useful while setting `module_x86` and `module_x64` fields in your Malleable C2 Profiles.
 
+Help:
+
+```
+PS C:\> py .\stomp-dll-info.py --help
+
+    :: stomp-dll-info.py - Your Module Stomping / DLL Hollowing candidates headhunter!
+    A script that scans, filters, analyzes DLL files displaying viable candidates for module stomping.
+
+    Mariusz B. / mgeeky, '21
+    <mb [at] binary-offensive.com>
+
+usage: .\stomp-dll-info.py [options] <path>
+
+positional arguments:
+  path                  Path to a DLL/directory.
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -r, --recurse         If <path> is a directory, perform recursive scan.
+  -v, --verbose         Verbose mode.
+
+Output sorting:
+  -a, --ascending       Sort in ascending order instead of default of descending.
+  -c COLUMN, --column COLUMN
+                        Sort by this column name. Default: filename. Available columns: "type", "filename", "file size", "image size", "code size", "hollow size", ".NET", "signed", "in System32", "in SysWOW64", "used by", "path"
+  -n NUM, --first NUM   Show only first N results, as specified in this paremeter. By default will show all candidates.
+
+Output filtering:
+  -C CODESIZE, --min-code-size CODESIZE
+                        Show only modules with code section bigger than this value.
+  -I IMAGESIZE, --min-image-size IMAGESIZE
+                        Show only modules which images are bigger than this value.
+  -E HOLLOWSIZE, --hollow-size HOLLOWSIZE
+                        Show only modules with enough room to fit shellcode in Module Stomping / DLL Hollowing technique. Example Beacon size requirement: 300KB (307200).
+  -S SIZE, --min-file-size SIZE
+                        Show only modules of size bigger than this value. Cobalt Strike c2lint complains when module stomping target is smaller than 23MB (24117248).
+  -P NAME, --process NAME
+                        Show only modules that are used by this process.
+  -U, --used            Show only modules that are used by any process in the system.
+  -Q, --not-used        Show only modules that are NOT used by any process in the system.
+  -D, --dotnet          Show only modules that are .NET assemblies.
+  -G, --signed          Show only code signed modules.
+  -H, --unsigned        Show only unsigned modules.
+  -W, --system-cross-arch
+                        Show only modules that are present in both System32 and SysWOW64 directories.
+```
+
 Example usage:
 ```
 PS C:\> py stomp-dll-info.py C:\Windows\System32 -c 'hollow size' -W -E 307200 -n 20
@@ -135,4 +182,6 @@ PS C:\> py stomp-dll-info.py C:\Windows\System32 -c 'hollow size' -W -E 307200 -
 |    |      |                                        |           |            |           |               |       |                       |             |             |              YourPhone.exe               |                                          |
 | 3  | dll  |                wmp.dll                 | 11500544  |  11587584  |  8181400  |    6644984    | False |       Unsigned        |    True     |    True     |                                          |       C:\Windows\System32\wmp.dll        |
 | 4  | dll  | Windows.Media.Protection.PlayReady.dll | 10352400  |  10309632  |  7175422  |    6218542    | False | Microsoft Corporation |    True     |    True     |                                          | C:\Windows\System32\Windows.Media.Protec |
+
+[...]
 ```
