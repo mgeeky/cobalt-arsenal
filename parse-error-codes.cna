@@ -13,11 +13,19 @@
 #    [-] could not open C:\gdgsdfgdf\*: 3. Parsed error code:
 #        3 - ERROR_PATH_NOT_FOUND
 #
+# Exposes also an alias 'get-error' allowing to manually resolve error numbers to their descriptions.
+#
 # Author:
 #   Mariusz B. / mgeeky, '20
 #   <mb [at] binary-offensive.com>
 #   (https://github.com/mgeeky)
 #
+
+
+beacon_command_register(
+    "get-error",
+    "Prints error description based on a error number.",
+    "Use: get-error <number>\n\nDescription: Takes a number on input, returns error description on output. Prepend number with '0x' to specify it in Hex.");
 
 global('@ERRORS_MAP');
 @ERRORS_MAP = @();
@@ -7160,6 +7168,37 @@ sub initErrorsMap {
     push(@ERRORS_MAP, @(9996L, "DNS_ERROR_POLICY_INVALID_CRITERIA_TIME_OF_DAY"));
     push(@ERRORS_MAP, @(999L, "ERROR_SWAPERROR"));
     push(@ERRORS_MAP, @(9L, "ERROR_INVALID_BLOCK"));
+}
+
+alias get-error {
+    $found = 0;
+    $err = 0;
+    $err0 = $2;
+
+    if (left(lc($2), 2) eq "0x") {
+        $err = parseNumber(substr($2, 2), 16);
+    }
+    else {
+        $err = parseNumber($2, 10);
+    }
+
+    @meanings = @();
+
+    for ($i = 0; $i < size(@ERRORS_MAP); $i++) {        
+        if ( @ERRORS_MAP[$i][0] == $err ) {
+            $found += 1;
+            push(@meanings, "\t" . $err0 . " - " . join(", ",
+                sublist(@ERRORS_MAP[$i], 1)
+            ));
+        }
+    }
+
+    if(size(@meanings) > 0) {
+        blog2($1, "Parsed error code:\n" . join("\n", @meanings) . "\n");
+    }
+    else {
+        blog2($1, "No errors matching supplied number: \c4 $+ $err0 $+ \o $+ .\n");
+    }
 }
 
 sub parseBeaconError {

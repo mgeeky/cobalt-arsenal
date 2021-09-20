@@ -82,6 +82,13 @@ Aforementioned methods are heavily flagged these days by EDRs and AVs so we woul
       3 - ERROR_PATH_NOT_FOUND
   ```
 
+  Also, the script exposes useful `get-error <number>` alias to quickly determine error's explanation based on supplied number:
+  ```
+  beacon> get-error 5
+  [*] Parsed error code:
+    5 - ERROR_ACCESS_DENIED
+  ```
+
 - **`rename-beacon-tabs.cna`** - Script that lets us rename Beacon-related tabs from a default format of: `Beacon <ip>@<pid>` to anything other we like, for instance: `B: <user>@<computer> (<pid>)`. 
 
    Format deciding how should each Beacon's tab be named, utilising beacon's metadata fields is described in a global variable named $beacon_tab_name_format . That variable may contain any of the following available beacon's metadata keys (CobaltStrike 4.2):
