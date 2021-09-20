@@ -108,3 +108,31 @@ Future post-ex jobs will be spawned with fake PPID set to:
 [.] host called home, sent: 12 bytes
 ```
 
+- **`stomp-dll-info.py`** - A script that list DLL files properties for purpose of finding good Module Stomping candidates. The results of this script can then be used in Cobalt Strike Malleable C2 Profiles and for the sake of other shellcode process-injection tests. Especially useful while setting `module_x86` and `module_x64` fields in your Malleable C2 Profiles.
+
+Example usage:
+```
+PS C:\> py stomp-dll-info.py C:\Windows\System32 -c 'hollow size' -W -E 307200 -n 20
+
+    :: stomp-dll-info.py - Your Module Stomping / DLL Hollowing candidates headhunter!
+    A script that scans, filters, analyzes DLL files displaying viable candidates for module stomping.
+
+    Mariusz B. / mgeeky, '21
+    <mb [at] binary-offensive.com>
+
++----+------+----------------------------------------+-----------+------------+-----------+---------------+-------+-----------------------+-------------+-------------+------------------------------------------+------------------------------------------+
+| #  | type |                filename                | file size | image size | code size | ▼ hollow size | .NET  |        signed         | in System32 | in SysWOW64 |                 used by                  |                   path                   |
++----+------+----------------------------------------+-----------+------------+-----------+---------------+-------+-----------------------+-------------+-------------+------------------------------------------+------------------------------------------+
+| 0  | dll  |               mshtml.dll               | 23447040  |  23552000  | 16574643  |   14951811    | False |       Unsigned        |    True     |    True     |                                          |      C:\Windows\System32\mshtml.dll      |
+| 1  | dll  |              edgehtml.dll              | 26269184  |  26406912  | 18349083  |   12778123    | False |       Unsigned        |    True     |    True     |              SearchApp.exe               |     C:\Windows\System32\edgehtml.dll     |
+| 2  | dll  |          Windows.UI.Xaml.dll           | 17539584  |  17567744  | 12105148  |    8655164    | False |       Unsigned        |    True     |    True     |  SystemSettings.exe, TextInputHost.exe,  | C:\Windows\System32\Windows.UI.Xaml.dll  |
+|    |      |                                        |           |            |           |               |       |                       |             |             |      explorer.exe, Calculator.exe,       |                                          |
+|    |      |                                        |           |            |           |               |       |                       |             |             |      SearchApp.exe, onenoteim.exe,       |                                          |
+|    |      |                                        |           |            |           |               |       |                       |             |             |       StartMenuExperienceHost.exe,       |                                          |
+|    |      |                                        |           |            |           |               |       |                       |             |             |  Video.UI.exe, ShellExperienceHost.exe,  |                                          |
+|    |      |                                        |           |            |           |               |       |                       |             |             |           WindowsTerminal.exe,           |                                          |
+|    |      |                                        |           |            |           |               |       |                       |             |             |    Microsoft.Photos.exe, LockApp.exe,    |                                          |
+|    |      |                                        |           |            |           |               |       |                       |             |             |              YourPhone.exe               |                                          |
+| 3  | dll  |                wmp.dll                 | 11500544  |  11587584  |  8181400  |    6644984    | False |       Unsigned        |    True     |    True     |                                          |       C:\Windows\System32\wmp.dll        |
+| 4  | dll  | Windows.Media.Protection.PlayReady.dll | 10352400  |  10309632  |  7175422  |    6218542    | False | Microsoft Corporation |    True     |    True     |                                          | C:\Windows\System32\Windows.Media.Protec |
+```
