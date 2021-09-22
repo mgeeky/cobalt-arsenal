@@ -44,6 +44,9 @@ UI embellishes, parsing of Beacon-events data (tasked, output, input, etc), powe
 
 - adds command `powershell-clear` to clear imported powershell script.
 
+- adds command 'inline-execute-assembly' which uses preconfigured .NET assemblies lookup directory and
+   automatically invokes one of supported inlineExecute-Assembly / ExecuteAssembly BOFs.
+
 - adds command `stracciatella-activedirectory` to ease use of ActiveDirectory Powershell module straight from Beacon's console.
 
 	![Beacon's imports](img/arsenal8.png)

