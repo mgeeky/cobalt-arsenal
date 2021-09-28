@@ -240,6 +240,16 @@ My other scripts that were integrated into this one (so there is no need to load
    - explore how we could leverage results from `keystrokes()`;
    - add more keyboard shortcuts(e.g. `openWindowsExecutableStage()`)
 
+
+---
+
+### ☕ Show Support ☕
+
+This and other projects are outcome of sleepless nights and **plenty of hard work**. If you like what I do and appreciate that I always give back to the community,
+[Consider buying me a coffee](https://github.com/sponsors/mgeeky) _(or better a beer)_ just to say thank you! 💪 
+
+---
+
 ### Author
 
 ```
