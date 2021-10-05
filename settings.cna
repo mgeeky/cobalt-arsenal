@@ -78,13 +78,14 @@
 #   [optional]"save.these.options.with.prefix.in.name")
 #
 sub saveOptions {
-    local('$handle $i $newl $updated @savedkeys $append @output @contents $optionsPrefix $fileName %options $p $k $key $val %fetchedOptions');
+    local('$handle $i $newl $updated $append @output @contents $optionsPrefix $fileName %options $p $k $key $val %fetchedOptions');
     $fileName = $1;
     %options = $2;
     $optionsPrefix = $3;
 
     @output = @();
     @contents = @();
+    @processed = @();
 
     if(-exists $fileName) {
         if(!-canread $fileName) {
@@ -102,19 +103,11 @@ sub saveOptions {
         }
     }
 
-    if(!-canwrite $fileName) {
-        show_error("Cannot write to settings file: $fileName");
-        return;
-    }
-
     $handle = openf(">" . $fileName);
     if($handle is $null) {
         show_error("Could not save options: Unable to open/create file.");
         return;
     }
-
-    @savedkeys = @();
-    $updated = 0;
 
     if(size(@contents) > 0) {
         for($i = 0; $i < size(@contents); $i++) {
@@ -125,8 +118,9 @@ sub saveOptions {
             else if('#*' iswm @contents[$i]) {
                 push(@output, @contents[$i]);
                 continue;
-            }
+            }   
 
+            $updated = 0;
             if(@contents[$i] ismatch '([^=]+)\s*=\s*(.+)') {
                 ($key, $oldval) = matched();
                 $key = ["$key" trim];
@@ -152,7 +146,8 @@ sub saveOptions {
                         }
 
                         push(@output, $newl);
-                        push(@savedkeys, $key2);
+                        push(@processed, $key2);
+
                         $updated = 1;
                     }
                 }
@@ -162,34 +157,30 @@ sub saveOptions {
                 push(@output, @contents[$i]);
             }
         }
-
-        foreach $key (keys(%options)) {
-            if($key in @savedkeys) {
-                continue;
-            }
-
-            $k = $optionsPrefix . $key;
-            $val = %options[$key];
-            $val = ["$val" trim];
-
-            $newl = "$k = ";
-
-            if(strlen($val) == 0) {
-                $newl .= "\"\"";
-            }
-            else if(indexOf($val, ' ')) {
-                $newl .= "\" $+ $val $+ \"";
-            }
-            else {
-                $newl .= $val;
-            }
-
-            push(@output, $newl);
-        }
     }
     else {
         foreach $key (keys(%options)) {
             $k = $optionsPrefix . $key;
+            $val = %options[$key];
+            $val = ["$val" trim];
+
+            if(strlen($val) == 0) {
+                push(@output, "$k = \"\"");
+            }
+            else if(indexOf($val, ' ')) {
+                push(@output, "$k = \" $+ $val $+ \"");
+            }
+            else {
+                push(@output, "$k = $val");
+            }
+
+            push(@processed, $key);
+        }
+    }
+
+    foreach $key (keys(%options)) {
+        $k = $optionsPrefix . $key;
+        if($key !in @processed) {
             $val = %options[$key];
             $val = ["$val" trim];
 

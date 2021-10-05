@@ -286,6 +286,10 @@ $LOAD_ADPSMODULE    = getFileProper(script_resource("modules"), "Load-AdPsModule
 # Set the service name used by jump psexec|psexec64|psexec_psh and psexec
 %arsenal::defaults["psexec_service_name"] = "vmicnetwork,vmichub,vmicmesh,vmicstage";
 
+# If both "inlineExecute-Assembly" and "ExecuteAssembly" BOFs are loaded in Cobalt Strike, this option
+# dictates which one to prefer when running `inline-execute-assembly` alias.
+%arsenal::defaults["prefer_inline_execute_provider"] = "inlineExecute-Assembly";
+
 # Use auto-ppid on initial Beacon check-in
 %arsenal::defaults["use_autoppid"] = "true";
 
@@ -317,16 +321,19 @@ $POWERSHELL_GET_JOINED_DOMAIN_NAME = '(Get-WmiObject Win32_ComputerSystem) | sel
 $USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; WOW64; Trident/7.0; rv:11.0) like Gecko";
 
 $stracciatellaAvailable = false;
+@available_inline_execute_assembly_bofs = @();
 
-@supported_inline_execute_assembly_bofs = @(
-    "inlineExecute-Assembly",
-    "ExecuteAssembly"
-);
+#
+# Below map specifies default arguments passed to `inlineExecute-Assembly` and `ExecuteAssembly` 
+# inline-execute-assembly providers.
+#
+%supported_inline_execute_assembly_bofs_args = %();
+%supported_inline_execute_assembly_bofs_args["inlineExecute-Assembly"] = "--dotnetassembly ASSEMBLY_PATH --assemblyargs ASSEMBLY_ARGS --appdomain ShareDomain --amsi --revertetw --mailslot chrome.nativeMessaging.out.83c0f1f02d1d17";
 
-@supported_inline_execute_assembly_bofs_args = @(
-    "--dotnetassembly ASSEMBLY_PATH --assemblyargs ASSEMBLY_ARGS --appdomain ShareDomain --amsi --revertetw --mailslot chrome.nativeMessaging.out.83c0f1f02d1d17",
-    "--amsi --etw --dotnetassembly ASSEMBLY_PATH --assemblyargs ASSEMBLY_ARGS --unlink-modules --spawnto PresentationHost.exe",
-);
+%supported_inline_execute_assembly_bofs_args["ExecuteAssembly"] = "--amsi --etw --dotnetassembly ASSEMBLY_PATH --assemblyargs ASSEMBLY_ARGS --unlink-modules --spawnto PresentationHost.exe";
+
+@supported_inline_execute_assembly_bofs = keys(%supported_inline_execute_assembly_bofs_args);
+
 
 $CURRENT_DOMAIN_NAME = "";
 
@@ -573,6 +580,8 @@ sub arsenal::beaconInitialActionsSetup {
 sub arsenal::updateglobals {
     local('$dialog');
 
+    preloadInlineExecuteProviders();
+
     $dialog = dialog("mgeeky's arsenal options", %arsenal::defaults, &arsenal::saveoptions);
 
     dialog_description($dialog, "Some adjustable preferences better customizing the way script works.");
@@ -584,13 +593,13 @@ sub arsenal::updateglobals {
     drow_text($dialog, "assemblies_storage_path", "Specify a path where .NET assemblies should be looked up if not found by execute-assembly: ");
     drow_combobox($dialog, "existing_downloaded_files_overriding", "During manual 'syncall' what to do with already existing locally downloaded files?", @('Skip existing files', 'Rename newly synced files'));
 
-    
     drow_combobox($dialog, "use_unsafe_encodedcommand_and_iex", "Use unsafe but stable Powershell (Net.WebClient).DownloadString and IEX() methods: ", @("Never", "Seldom", "Always"));
     
     drow_checkbox($dialog, "show_debug_logs", "Enable debug output in Script Console: ", "Debug");
     drow_text($dialog, "parent_process_name", "Process name to spoof as parent in PPID (and 'autoppid' command) - comma separates multiple entries: ");
     drow_text($dialog, "privileged_parent_process_name", "Process name to spoof as parent in PPID in PRIVILEGED Beacons (and 'autoppid' command): ");
     drow_text($dialog, "psexec_service_name", "Service name(s) to use in PSExec lateral movement (comma separated, will pick at random): ");
+    drow_combobox($dialog, "prefer_inline_execute_provider", "When two inline execute-assembly BOF providers are available, prefer this one: ", @available_inline_execute_assembly_bofs);
 
     dbutton_action($dialog, "Update");
     dialog_show($dialog);
@@ -692,6 +701,7 @@ sub arsenal::saveoptions{
     %arsenal::defaults["psexec_service_name"] = %options["psexec_service_name"];
     %arsenal::defaults["beacon_tab_name_format"] = %options["beacon_tab_name_format"];
     %arsenal::defaults["add_beacon_notes"] = %options["add_beacon_notes"];
+    %arsenal::defaults["prefer_inline_execute_provider"] = %options["prefer_inline_execute_provider"];
 
     if(%options["existing_downloaded_files_overriding"] eq "Skip existing files") {
         %arsenal::defaults["existing_downloaded_files_overriding"] = 'skip';
@@ -720,6 +730,8 @@ sub arsenal::saveoptions{
             return;
         }
     }
+
+    checkInlineExecuteAssemblyProviders();
 
     putOptions();
     show_message("Options saved.");
@@ -1561,6 +1573,46 @@ sub checkStracciatella {
     }
 }
 
+sub preloadInlineExecuteProviders {
+	clear(@available_inline_execute_assembly_bofs);
+
+	foreach $provider (@supported_inline_execute_assembly_bofs) {
+		foreach $command (beacon_commands()) {
+			$c = $provider . '*';
+	        if($c iswm $command) {
+	            push(@available_inline_execute_assembly_bofs, $provider);
+	            break;
+	        }
+	    }
+    }
+}
+
+sub checkInlineExecuteAssemblyProviders {
+	preloadInlineExecuteProviders();
+
+    if(size(@available_inline_execute_assembly_bofs) > 0) {
+    	arsenal::debug("2");
+    	if(strlen(%arsenal::defaults["prefer_inline_execute_provider"]) == 0) {
+    		%arsenal::defaults["prefer_inline_execute_provider"] = @available_inline_execute_assembly_bofs[0];
+    		arsenal::debug("Preferred inline-execute-assembly provider set to: " . @available_inline_execute_assembly_bofs[0]);
+    	}
+    	else if(%arsenal::defaults["prefer_inline_execute_provider"] !in @available_inline_execute_assembly_bofs) {
+    		show_error("Error: prefer_inline_execute_provider set with unsupported value! Reverting to default one.");
+    		%arsenal::defaults["prefer_inline_execute_provider"] = @available_inline_execute_assembly_bofs[0];
+    	}
+    }
+    else if(size(@available_inline_execute_assembly_bofs) == 0) {
+    	arsenal::debug("6");
+    	if(strlen(%arsenal::defaults["prefer_inline_execute_provider"]) > 0) {
+    		arsenal::debug("No inline-execute-assembly providers loaded. Disabling 'inline-execute-assembly' alias.");
+    		%arsenal::defaults["prefer_inline_execute_provider"] = "";
+    	}
+    }
+
+    arsenal::debug("Available inline-execute-assembly providers: " . @available_inline_execute_assembly_bofs);
+    arsenal::debug("Set preferred provider to: " . %arsenal::defaults["prefer_inline_execute_provider"]);
+}
+
 sub arsenal::runPowershell {
     if($stracciatellaAvailable) {
         fireAlias($1, "stracciatella", $2);
@@ -1762,19 +1814,23 @@ alias inline-execute-assembly {
     $bof_to_use = "";
     $bof_command = "";
 
+    if(strlen(%arsenal::defaults["prefer_inline_execute_provider"]) == 0) {
+    	berror($1, "This alias is disabled.\n\nNone of the supported " . join(', ', @supported_inline_execute_assembly_bofs) . " providers were either loaded or chosen in prefer_inline_execute_provider option.");
+        return;
+    }
+
     @commands = beacon_commands();
 
-    for($i = 0; $i < size(@supported_inline_execute_assembly_bofs); $i++) {
-        $c = @supported_inline_execute_assembly_bofs[$i];
-        if($c in @commands) {
-            $bof_to_use = @supported_inline_execute_assembly_bofs[$i];
-            $bof_command = @supported_inline_execute_assembly_bofs_args[$i];
-            break;
-        }
+    if(%arsenal::defaults["prefer_inline_execute_provider"] in @commands) {
+        $bof_to_use = %arsenal::defaults["prefer_inline_execute_provider"];
+        $bof_command = %supported_inline_execute_assembly_bofs_args[$bof_to_use];
+    }
+    else {
+
     }
 
     if(strlen($bof_to_use) == 0) {
-        berror($1, "Could not find neither of " . join(', ', @supported_inline_execute_assembly_bofs) . " commands loaded. First load one of their CNAs and then reuse this alias.");
+        berror($1, "Command ". %arsenal::defaults["prefer_inline_execute_provider"] . " is not loaded! Please change preferred inline-execute-assembly provider in Arsenal's options or load this provider's CNA script.");
         return;
     }
 
@@ -2720,6 +2776,7 @@ sub saveOptions {
 
     @output = @();
     @contents = @();
+    @processed = @();
 
     if(-exists $fileName) {
         if(!-canread $fileName) {
@@ -2780,6 +2837,7 @@ sub saveOptions {
                         }
 
                         push(@output, $newl);
+                        push(@processed, $key2);
 
                         $updated = 1;
                     }
@@ -2806,7 +2864,27 @@ sub saveOptions {
             else {
                 push(@output, "$k = $val");
             }
+
+            push(@processed, $key);
         }
+    }
+
+    foreach $key (keys(%options)) {
+    	$k = $optionsPrefix . $key;
+    	if($key !in @processed) {
+    		$val = %options[$key];
+            $val = ["$val" trim];
+
+            if(strlen($val) == 0) {
+                push(@output, "$k = \"\"");
+            }
+            else if(indexOf($val, ' ')) {
+                push(@output, "$k = \" $+ $val $+ \"");
+            }
+            else {
+                push(@output, "$k = $val");
+            }
+    	}
     }
 
     printAll($handle, @output);
@@ -2932,7 +3010,20 @@ sub getOptions {
         }
     }
 
-    arsenal::debug("Arsenal options loaded.");
+    if(%arsenal::defaults["prefer_inline_execute_provider"] !in @supported_inline_execute_assembly_bofs) {
+    	show_error("Error while loading options: prefer_inline_execute_provider set with unsupported value! Reverting to default.");
+
+    	%arsenal::defaults["prefer_inline_execute_provider"] = @supported_inline_execute_assembly_bofs[0];
+    }
+
+    arsenal::debug("Arsenal options loaded from $savedSettingsFile :\n");
+    if(%arsenal::defaults["show_debug_logs"]) {
+    	foreach $k => $v (%arsenal::defaults) {
+    		print("\t" . $k . " = " . $v . "\n");
+    	}
+
+    	print("\n");
+    }
 }
 
 sub saveBeaconsMetadataCache {
@@ -3460,4 +3551,5 @@ getOptions();
 arsenal::renameBeaconTabs();
 
 checkStracciatella();
+checkInlineExecuteAssemblyProviders();
 arsenal::debug("Straciatella available: $stracciatellaAvailable");
