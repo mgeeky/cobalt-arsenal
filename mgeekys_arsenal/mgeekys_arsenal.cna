@@ -1591,7 +1591,6 @@ sub checkInlineExecuteAssemblyProviders {
 	preloadInlineExecuteProviders();
 
     if(size(@available_inline_execute_assembly_bofs) > 0) {
-    	arsenal::debug("2");
     	if(strlen(%arsenal::defaults["prefer_inline_execute_provider"]) == 0) {
     		%arsenal::defaults["prefer_inline_execute_provider"] = @available_inline_execute_assembly_bofs[0];
     		arsenal::debug("Preferred inline-execute-assembly provider set to: " . @available_inline_execute_assembly_bofs[0]);
@@ -1602,7 +1601,6 @@ sub checkInlineExecuteAssemblyProviders {
     	}
     }
     else if(size(@available_inline_execute_assembly_bofs) == 0) {
-    	arsenal::debug("6");
     	if(strlen(%arsenal::defaults["prefer_inline_execute_provider"]) > 0) {
     		arsenal::debug("No inline-execute-assembly providers loaded. Disabling 'inline-execute-assembly' alias.");
     		%arsenal::defaults["prefer_inline_execute_provider"] = "";
