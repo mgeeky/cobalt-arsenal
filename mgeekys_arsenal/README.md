@@ -185,6 +185,7 @@ to Always.
 
    - _"On initial Beacon check-in do all the automated stuff"_ - controls whether we should issue all of the 
        automated stuff described in `When a new Beacon checks in - here's what happens` section above.
+   - _"Rename Beacon tabs according to this format_" - renames Beacon tabs every 15 seconds to the specified format. See other available placeholders in `renameBeaconTabs.cna` referenced in root's repository README.
    - _"Specify local path where to save downloaded files"_ - to be used by auto-sync-downloaded-files logic
    - _"Specify local path .NET assemblies should be looked for"_ - to be used if execute-assembly didn't find
        specified assembly's name as a lookup directory, similarly to $PATH concept.
@@ -200,6 +201,7 @@ to Always.
    - _"Process name to spoof as parent in PPID"_
    - _"Service name(s) to use in PSExec lateral movement"_ - comma-separeted list of service names to be used
        by Cobalt Strike when doing jump psexec/psexec64
+   - _"When two inline execute-assembly BOF providers are available"_ - If you happen to have loaded one of the following two supported BOFs: [anthemtotheego/InlineExecute-Assembly](https://github.com/anthemtotheego/InlineExecute-Assembly) or [med0x2e/ExecuteAssembly](https://github.com/med0x2e/ExecuteAssembly) this option will let you choose one of them to be picked while using an easy wrapper alias `inline-execute-assembly` exposed by this arsenal.
 
 ---
 
@@ -216,6 +218,8 @@ This Aggressor script stands on the shoulder of giants utilising their splendid 
    - PowerShellMafia:  https://github.com/PowerShellMafia/PowerSploit
    - xan7r:            https://github.com/xan7r/Misc
    - 0xthirteen:       https://github.com/0xthirteen/MoveKit
+   - med0x2e:          https://github.com/med0x2e/ExecuteAssembly
+   - anthemtotheego:   https://github.com/anthemtotheego/InlineExecute-Assembly
 
 And all others offensive cyber security folks whom I may not referenced as well! Please let me know if I'm using your piece of code without properly crediting you.
 

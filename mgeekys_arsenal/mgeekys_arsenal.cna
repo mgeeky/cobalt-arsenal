@@ -586,7 +586,6 @@ sub arsenal::updateglobals {
 
     dialog_description($dialog, "Some adjustable preferences better customizing the way script works.");
 
-    drow_checkbox($dialog, "add_beacon_notes", "Allow the script to append valuable metadata to Beacon's notes (separated from automated actions): ", "Enable");
     drow_text($dialog, "beacon_tab_name_format", "Rename Beacon tabs according to this format (place metadata like so: <user>). Empty to not rename:");
 
     drow_text($dialog, "download_files_dst_path", "Specify a path where to save downloaded files: ");
