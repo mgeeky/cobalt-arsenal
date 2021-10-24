@@ -125,7 +125,7 @@ PS C:\> py .\stomp-dll-info.py --help
     :: stomp-dll-info.py - Your Module Stomping / DLL Hollowing candidates headhunter!
     A script that scans, filters, analyzes DLL files displaying viable candidates for module stomping.
 
-    Mariusz B. / mgeeky, '21
+    Mariusz Banach / mgeeky, '21
     <mb [at] binary-offensive.com>
 
 usage: .\stomp-dll-info.py [options] <path>
@@ -171,7 +171,7 @@ PS C:\> py stomp-dll-info.py C:\Windows\System32 -c 'hollow size' -W -E 307200 -
     :: stomp-dll-info.py - Your Module Stomping / DLL Hollowing candidates headhunter!
     A script that scans, filters, analyzes DLL files displaying viable candidates for module stomping.
 
-    Mariusz B. / mgeeky, '21
+    Mariusz Banach / mgeeky, '21
     <mb [at] binary-offensive.com>
 
 +----+------+----------------------------------------+-----------+------------+-----------+---------------+-------+-----------------------+-------------+-------------+------------------------------------------+------------------------------------------+
@@ -204,6 +204,6 @@ This and other projects are outcome of sleepless nights and **plenty of hard wor
 ---
 
 ```
-Mariusz B. / mgeeky, (@mariuszbit)
+Mariusz Banach / mgeeky, (@mariuszbit)
 <mb [at] binary-offensive.com>
 ```

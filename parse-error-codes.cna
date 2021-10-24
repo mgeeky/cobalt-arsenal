@@ -16,7 +16,7 @@
 # Exposes also an alias 'get-error' allowing to manually resolve error numbers to their descriptions.
 #
 # Author:
-#   Mariusz B. / mgeeky, '20
+#   Mariusz Banach / mgeeky, '20
 #   <mb [at] binary-offensive.com>
 #   (https://github.com/mgeeky)
 #

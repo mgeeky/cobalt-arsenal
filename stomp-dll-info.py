@@ -16,7 +16,7 @@
 #    The PE Authenticode verification logic is somewhat flawed, as it is unable currently to pull executable's
 #    signature if there is no PKCS7 structure pointed by IMAGE_DIRECTORY_ENTRY_SECURITY entry!
 #
-# Mariusz B. / mgeeky, '21
+# Mariusz Banach / mgeeky, '21
 # <mb [at] binary-offensive.com>
 #
 
@@ -443,7 +443,7 @@ def main(argv):
     :: stomp-dll-info.py - Your Module Stomping / DLL Hollowing candidates headhunter!
     A script that scans, filters, analyzes DLL files displaying viable candidates for module stomping.
     
-    Mariusz B. / mgeeky, '21
+    Mariusz Banach / mgeeky, '21
     <mb [at] binary-offensive.com> 
 ''')
 

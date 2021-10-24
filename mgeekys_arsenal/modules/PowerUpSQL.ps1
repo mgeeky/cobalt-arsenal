@@ -17551,7 +17551,7 @@ Function  Get-SQLServerPasswordHash
 # ----------------------------------
 #  Invoke-SQLUploadFileOle
 # ----------------------------------
-# Author: Mariusz B. / mgeeky
+# Author: Mariusz Banach / mgeeky
 # Reference: https://www.blackarrow.net/mssqlproxy-pivoting-clr/
 # Reference: https://docs.microsoft.com/en-us/sql/relational-databases/system-stored-procedures/ole-automation-stored-procedures-transact-sql?view=sql-server-ver15
 Function  Invoke-SQLUploadFileOle
@@ -17910,7 +17910,7 @@ EXEC sp_OADestroy @ob;
 # ----------------------------------
 #  Invoke-SQLDownloadFile
 # ----------------------------------
-# Author: Mariusz B. / mgeeky
+# Author: Mariusz Banach / mgeeky
 # Reference: https://www.blackarrow.net/mssqlproxy-pivoting-clr/
 # Reference: https://docs.microsoft.com/en-us/sql/relational-databases/import-export/import-bulk-data-by-using-bulk-insert-or-openrowset-bulk-sql-server?view=sql-server-ver15
 Function  Invoke-SQLDownloadFile

@@ -2,7 +2,7 @@
 # This script generates stageless payload variants per each available architecture and output
 # format type. Compatible with Cobalt Strike 4.0+
 #
-# Author: Mariusz B. / mgeeky, '20
+# Author: Mariusz Banach / mgeeky, '20
 # <mb [at] binary-offensive.com>
 #
 
