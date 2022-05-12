@@ -2231,8 +2231,8 @@ sub arsenal::parseSeatBeltOutput {
     }
     catch $message 
     { 
-        btask($bid, "WARNING: Unable to extract SeatBelt domain name.\nERROR: $message");
-        arsenal::debug("WARNING: Unable to extract SeatBelt domain name.\nERROR: $message");
+        #btask($bid, "WARNING: Unable to extract SeatBelt domain name.\nERROR: $message");
+        #arsenal::debug("WARNING: Unable to extract SeatBelt domain name.\nERROR: $message");
         arsenal::debug(getStackTrace()); 
     }
 }
