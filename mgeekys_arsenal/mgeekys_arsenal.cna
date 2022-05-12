@@ -55,6 +55,8 @@
 #
 #   - adds command 'powershell-clear' to clear imported powershell script.
 #
+#   - adds command 'pspane' authored by bluescreenofjeff, to quickly open up process list pane
+#
 #   - adds command 'inline-execute-assembly' which uses preconfigured .NET assemblies lookup directory and
 #       automatically invokes one of supported inlineExecute-Assembly / ExecuteAssembly BOFs.
 #
@@ -1071,6 +1073,13 @@ beacon_command_register(
     "Launches SharpHound assembly with options specified (or '-c All' if none were given).",
     "Use: launch-sharphound <domain.fqdn> [sharphound-options]\n\nDescription: Launches SharpHound ingestor with options given to this command. The first parameter requires to specify domain in FQDN form.");
 
+#author bluescreenofjeff
+beacon_command_register(
+	"pspane", 
+	"open process browser pane",
+	"Synopsis: pspane \n\n" .
+	"Open the process browser pane for the current Beacon.");
+
 beacon_command_register(
     "psh",
     "An alternative for `powershell` command using `base64(xor(command))` to STDIN strategy (avoids -Encodedcommand)",
@@ -2027,6 +2036,11 @@ set POWERSHELL_COMMAND {
 
     arsenal::debug("hooked POWERSHELL_COMMAND (strategy: $strategy $+ ): $cmd");
     return $cmd;
+}
+
+alias pspane {
+	binput($1, "ps");
+	openProcessBrowser($1);
 }
 
 alias shell {

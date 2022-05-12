@@ -44,6 +44,8 @@ UI embellishes, parsing of Beacon-events data (tasked, output, input, etc), powe
 
 - adds command `powershell-clear` to clear imported powershell script.
 
+- adds command `pspane` authored by bluescreenofjeff, to quickly open up process list pane
+
 - adds command 'inline-execute-assembly' which uses preconfigured .NET assemblies lookup directory and
    automatically invokes one of supported inlineExecute-Assembly / ExecuteAssembly BOFs.
 
