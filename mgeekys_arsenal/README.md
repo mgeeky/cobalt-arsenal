@@ -46,8 +46,8 @@ UI embellishes, parsing of Beacon-events data (tasked, output, input, etc), powe
 
 - adds command `pspane` authored by bluescreenofjeff, to quickly open up process list pane
 
-- adds command 'inline-execute-assembly' which uses preconfigured .NET assemblies lookup directory and
-   automatically invokes one of supported inlineExecute-Assembly / ExecuteAssembly BOFs.
+- adds command `inline-execute-assembly` which uses preconfigured .NET assemblies lookup directory and
+   automatically invokes one of supported `inlineExecute-Assembly` / `ExecuteAssembly` BOFs.
 
 - adds command `stracciatella-activedirectory` to ease use of ActiveDirectory Powershell module straight from Beacon's console.
 
@@ -204,6 +204,7 @@ to Always.
    - _"Service name(s) to use in PSExec lateral movement"_ - comma-separeted list of service names to be used
        by Cobalt Strike when doing jump psexec/psexec64
    - _"When two inline execute-assembly BOF providers are available"_ - If you happen to have loaded one of the following two supported BOFs: [anthemtotheego/InlineExecute-Assembly](https://github.com/anthemtotheego/InlineExecute-Assembly) or [med0x2e/ExecuteAssembly](https://github.com/med0x2e/ExecuteAssembly) this option will let you choose one of them to be picked while using an easy wrapper alias `inline-execute-assembly` exposed by this arsenal.
+   - _"If there is BOF.NET loaded, prefer it over execute-assembly"_ - if BOF.NET is loaded, do not use `execute-assembly` for arsenal's commands (such as `launch-seatbelt`), but rather pick `bofnet_jobassembly`.
 
 ---
 

