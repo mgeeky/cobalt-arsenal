@@ -2387,7 +2387,7 @@ sub arsenal::executeAssembly {
 		btask($bid, "Tasked beacon to run .NET program via bofnet_jobassembly \c7" . $assemblyName . " $args \o");
 	    arsenal::debug("augmented bofnet_jobassembly: bid='" . $bid . "', assemblyName='" . $assemblyName . "', args='" . $args . "'");
 
-	    beacon_task($bid, "bofnet_jobassembly $assemblyName $args");
+	    fireAlias($bid, "bofnet_jobassembly", "$assemblyName $args");
     }
     else 
     {
