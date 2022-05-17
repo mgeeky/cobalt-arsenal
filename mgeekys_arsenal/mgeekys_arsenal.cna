@@ -1048,7 +1048,7 @@ beacon_command_register(
 beacon_command_register(
     "launch-sharpdpapi",
     "Launches SharpDPAPI assembly with options specified.",
-    "Use: launch-sharpup [options]\n\nDescription: Launches SharpDPAPI with options given to this command.");
+    "Use: launch-sharpdpapi [options]\n\nDescription: Launches SharpDPAPI with options given to this command.");
 
 beacon_command_register(
     "launch-monologue",
