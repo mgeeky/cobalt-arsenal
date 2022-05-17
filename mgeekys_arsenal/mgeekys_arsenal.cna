@@ -2257,14 +2257,14 @@ sub arsenal::parseSeatBeltOutput {
         }
         else
         {
-            throw "Could not extract SeatBelt domain name!";
+            #throw "Could not extract SeatBelt domain name!";
         }
     }
     catch $message 
     { 
         #btask($bid, "WARNING: Unable to extract SeatBelt domain name.\nERROR: $message");
         #arsenal::debug("WARNING: Unable to extract SeatBelt domain name.\nERROR: $message");
-        arsenal::debug(getStackTrace()); 
+        #arsenal::debug(getStackTrace()); 
     }
 }
 
@@ -2363,7 +2363,7 @@ alias execute-assembly {
     btask($bid, "Tasked beacon to run .NET program: \c7" . getFileName($localpath) . " $args \o");
     arsenal::debug("augmented execute-assembly: bid='" . $bid . "', localpath='" . $localpath . "', args='" . $args . "'");
 
-    bexecute_assembly!($bid, $localpath, $args);
+    bexecute_assembly($bid, $localpath, $args);
 }
 
 sub arsenal::executeAssembly {
