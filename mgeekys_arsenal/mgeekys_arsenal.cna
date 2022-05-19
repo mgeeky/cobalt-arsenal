@@ -1621,7 +1621,7 @@ sub checkInlineExecuteAssemblyProviders {
     		arsenal::debug("Preferred inline-execute-assembly provider set to: " . @available_inline_execute_assembly_bofs[0]);
     	}
     	else if(%arsenal::defaults["prefer_inline_execute_provider"] !in @available_inline_execute_assembly_bofs) {
-    		show_error("Error: prefer_inline_execute_provider set with unsupported value! Reverting to default one.");
+    		#show_error("Error: prefer_inline_execute_provider set with unsupported value! Reverting to default one.");
     		%arsenal::defaults["prefer_inline_execute_provider"] = @available_inline_execute_assembly_bofs[0];
     	}
     }
