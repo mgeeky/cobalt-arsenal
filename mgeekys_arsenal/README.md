@@ -78,6 +78,7 @@ UI embellishes, parsing of Beacon-events data (tasked, output, input, etc), powe
 - adds beacon popup menu called _"Arsenal"_ with following sub-menus:
    - _"Job Kill"_ allowing to review list of running Jobs in a Beacon and select one to kill it.
    - _"Mass Run"_ offering: Checkin, Jobs, Getuid, Shell, Powershell, Powerpick
+   - _"Schedule Keylogger and Screenwatch"_ helper to instantly run sleep + screenwatch + keylogger on a beacon
    - _"Launch"_ : offering handy way of invoking our defined `launch-*` aliases
 
    ![Beacon's popup menu](img/arsenal3.png)

