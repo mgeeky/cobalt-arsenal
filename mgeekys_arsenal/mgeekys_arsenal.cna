@@ -2087,7 +2087,6 @@ alias rm {
 
     $p = join(' ', @_);
 
-    btask($1, "Tasked beacon to remove path: \" $+ $p $+ \"");
     brm($1, $p);
 }
 
