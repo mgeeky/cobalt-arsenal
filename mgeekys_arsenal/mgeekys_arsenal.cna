@@ -1138,8 +1138,8 @@ beacon_command_register(
 
 beacon_command_register(
     "rm",
-    "Remove file or folders.",
-    "Use: rm file/folder1 [file/folder2 ...]\n\nRemoves a file or folder");
+    "Remove file or folder.",
+    "Use: rm file/folder1\n\nRemoves a file or folder");
 
 beacon_command_register(
     "getpid",
@@ -2085,9 +2085,10 @@ alias rm {
     local('$arg');
     shift(@_);
 
-    foreach $arg (@_) {
-        brm($1, $arg);
-    }
+    $p = join(' ', @_);
+
+    btask($1, "Tasked beacon to remove path: \" $+ $p $+ \"");
+    brm($1, $p);
 }
 
 alias ppid {
