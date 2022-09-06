@@ -1,6 +1,0 @@
-alias bye {
-	binput($1, "exit");
-	bexit($1);
-	blog($1,"Removed Beacon from Display!");
-	beacon_remove($1);
-}
