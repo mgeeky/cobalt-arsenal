@@ -24,7 +24,7 @@
 #   (https://github.com/mgeeky)
 #
 
-$beacon_tab_name_format = "B: <user>@<computer> (<pid>)";
+$beacon_tab_name_format = "<user>@<computer> (<pid>)";
 
 
 on heartbeat_15s {
